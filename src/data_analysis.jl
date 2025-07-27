@@ -264,100 +264,85 @@ Extrai dados de performance de um arquivo JLD2 para criar uma matriz de performa
 - `target_solvers::Vector{String}`: Lista de solvers para incluir na análise
 
 # Returns
-- `Tuple{Matrix{Float64}, Vector{Tuple{String, Int}}}`: 
+- `Tuple{Matrix{Float64}, Vector{Tuple{String, Float64, Int}}}`: 
   - Matriz de performance (instâncias × solvers)
-  - Lista de informações das instâncias (problema, run_id)
+  - Lista de informações das instâncias (problema, delta, run_id)
 
 # Note
-Esta função cria uma matriz onde cada linha representa uma instância (problema × run_id)
+Esta função cria uma matriz onde cada linha representa uma instância (problema, delta, run_id)
 e cada coluna representa um solver. Valores NaN indicam execuções falhadas ou dados ausentes.
-A estrutura do arquivo é: solver/problem/run_id
+A estrutura do arquivo esperada é: `solver/problem/delta/run_id`.
 """
 function extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
     println("\nExtraindo dados de performance do arquivo: $(basename(filepath))")
     println("Métrica: $metric")
-    
-    # Carregar dados do arquivo JLD2
+
     jldopen(filepath, "r") do file
-        # Obter lista de solvers disponíveis
         available_solvers = collect(keys(file))
-        println("Solvers encontrados: $available_solvers")
-        
-        # Filtrar apenas os solvers que queremos analisar
         solvers_to_analyze = filter_solvers(available_solvers, target_solvers)
+        
         if isempty(solvers_to_analyze)
-            return nothing, nothing
+            println("Nenhum dos solvers desejados foi encontrado no arquivo.")
+            return Matrix{Float64}(undef, 0, 0), []
         end
-        
-        # Obter lista de problemas disponíveis
-        problems = Set{String}()
-        run_ids = Set{Int}()
-        
+
+        # Descobrir todas as instâncias únicas (problema, delta, run_id)
+        instance_info = Set{Tuple{String, Float64, Int}}()
         for solver in solvers_to_analyze
+            if !haskey(file, solver); continue; end
             solver_group = file[solver]
             for problem in keys(solver_group)
-                push!(problems, problem)
-                
-                # Obter run_ids deste problema
                 problem_group = solver_group[problem]
-                for run_key in keys(problem_group)
-                    if startswith(run_key, "run_")
+                for delta_key in keys(problem_group)
+                    if !startswith(delta_key, "delta_"); continue; end
+                    delta_str = replace(delta_key, "delta_" => "")
+                    delta_val = parse(Float64, replace(delta_str, "-" => "."))
+                    
+                    delta_group = problem_group[delta_key]
+                    for run_key in keys(delta_group)
+                        if !startswith(run_key, "run_"); continue; end
                         run_id = parse(Int, replace(run_key, "run_" => ""))
-                        push!(run_ids, run_id)
+                        push!(instance_info, (problem, delta_val, run_id))
                     end
                 end
             end
         end
+
+        sorted_instance_info = sort(collect(instance_info), by = x -> (x[1], x[2], x[3]))
         
-        problems = sort(collect(problems))
-        run_ids = sort(collect(run_ids))
-        
-        println("Problemas encontrados: $problems")
-        println("Run IDs encontrados: $run_ids")
-        
-        # Criar lista de instâncias (problema × run_id)
-        instance_info = []
-        for problem in problems
-            for run_id in run_ids
-                push!(instance_info, (problem, run_id))
-            end
+        if isempty(sorted_instance_info)
+            println("Nenhuma instância de resultado encontrada no arquivo.")
+            return Matrix{Float64}(undef, 0, 0), []
         end
-        
-        println("Total de instâncias: $(length(instance_info))")
-        
-        # Criar matriz de performance
-        # Cada linha = uma instância (problema × run_id)
-        # Cada coluna = um solver
-        perf_matrix = fill(NaN, length(instance_info), length(solvers_to_analyze))
+
+        println("Total de instâncias encontradas: $(length(sorted_instance_info))")
+
+        # Criar matriz de performance (instâncias × solvers)
+        perf_matrix = fill(NaN, length(sorted_instance_info), length(solvers_to_analyze))
         
         # Preencher a matriz
-        for (instance_idx, (problem, run_id)) in enumerate(instance_info)
+        for (instance_idx, (problem, delta, run_id)) in enumerate(sorted_instance_info)
             for (solver_idx, solver) in enumerate(solvers_to_analyze)
-                run_key = "run_$run_id"
+                delta_str = replace(string(delta), "." => "-")
+                delta_key = "delta_$(delta_str)"
+                run_key = "run_$(run_id)"
                 
-                # Verificar se existe este resultado usando a estrutura hierárquica
-                if haskey(file[solver], problem) && 
-                   haskey(file[solver][problem], run_key)
+                path_exists = haskey(file, solver) &&
+                              haskey(file[solver], problem) &&
+                              haskey(file[solver][problem], delta_key) &&
+                              haskey(file[solver][problem][delta_key], run_key)
+
+                if path_exists
+                    result = file[solver][problem][delta_key][run_key]
                     
-                    result = file[solver][problem][run_key]
-                    
-                    # Verificar se a execução foi bem-sucedida
-                    if result.success
-                        # Extrair o valor da métrica
-                        if hasfield(typeof(result), Symbol(metric))
-                            perf_matrix[instance_idx, solver_idx] = getfield(result, Symbol(metric))
-                        else
-                            println("Aviso: Campo '$metric' não encontrado para solver $solver, problema $problem, run $run_id")
-                        end
-                    else
-                        # Execução falhou, manter NaN
-                        println("Execução falhou: solver $solver, problema $problem, run $run_id")
+                    if result.success && hasfield(typeof(result), Symbol(metric))
+                        perf_matrix[instance_idx, solver_idx] = getfield(result, Symbol(metric))
                     end
                 end
             end
         end
         
-        return perf_matrix, instance_info
+        return perf_matrix, sorted_instance_info
     end
 end
 

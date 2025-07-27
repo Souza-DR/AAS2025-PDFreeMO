@@ -52,74 +52,99 @@ end
 Cria e salva o performance profile
 """
 function create_performance_profile(filepath::String, metric::String)
-    # Extrair dados
+    # Extrair todos os dados de uma vez
     perf_matrix, instance_info = extract_performance_data(filepath, metric)
     
-    if perf_matrix === nothing
+    if perf_matrix === nothing || isempty(perf_matrix)
         println("Não foi possível extrair dados de performance.")
-        return nothing
+        return
     end
+
+    # Encontrar deltas únicos a partir das informações das instâncias
+    unique_deltas = unique([info[2] for info in instance_info])
+    println("\nDeltas encontrados: $unique_deltas. Gerando um perfil para cada um.")
     
-    # Verificar se temos dados válidos
-    if all(isnan, perf_matrix)
-        println("Nenhum dado válido encontrado para a métrica '$metric'.")
-        return nothing
-    end
-    
-    # Imprimir estatísticas
-    println("\nEstatísticas da métrica '$(METRICS[metric])':")
-    for (solver_idx, solver) in enumerate(SOLVER_NAMES)
-        if solver_idx <= size(perf_matrix, 2)
-            valid_values = filter(!isnan, perf_matrix[:, solver_idx])
-            if !isempty(valid_values)
-                println("$solver: Min=$(minimum(valid_values)), Max=$(maximum(valid_values)), Média=$(round(mean(valid_values), digits=2)), Mediana=$(round(median(valid_values), digits=2))")
-            else
-                println("$solver: Sem valores válidos")
+    # Iterar sobre cada delta e criar um perfil de desempenho
+    for delta in unique_deltas
+        println("\n--- Processando Delta = $delta ---")
+        
+        # Filtrar a matriz de performance e as informações de instância para o delta atual
+        indices = findall(info -> info[2] == delta, instance_info)
+        
+        if isempty(indices)
+            println("Nenhuma instância encontrada para o delta $delta.")
+            continue
+        end
+        
+        perf_matrix_for_delta = perf_matrix[indices, :]
+
+        # Verificar se temos dados válidos para este delta
+        if all(isnan, perf_matrix_for_delta)
+            println("Nenhum dado válido encontrado para a métrica '$metric' com delta = $delta.")
+            continue
+        end
+        
+        # Imprimir estatísticas para o delta atual
+        println("Estatísticas para delta=$delta, métrica='$(METRICS[metric])':")
+        for (solver_idx, solver) in enumerate(SOLVER_NAMES)
+            if solver_idx <= size(perf_matrix_for_delta, 2)
+                valid_values = filter(!isnan, perf_matrix_for_delta[:, solver_idx])
+                if !isempty(valid_values)
+                    println("$solver: Min=$(minimum(valid_values)), Max=$(maximum(valid_values)), Média=$(round(mean(valid_values), digits=2)), Mediana=$(round(median(valid_values), digits=2))")
+                else
+                    println("$solver: Sem valores válidos para este delta")
+                end
             end
         end
-    end
-    
-    # Criar o performance profile
-    println("\nCriando performance profile...")
-    
-    # Filtrar solvers que têm dados
-    solvers_with_data = String[]
-    for (solver_idx, solver) in enumerate(SOLVER_NAMES)
-        if solver_idx <= size(perf_matrix, 2) && !all(isnan, perf_matrix[:, solver_idx])
-            push!(solvers_with_data, String(solver))
+        
+        # Filtrar solvers que têm dados para este delta
+        solvers_with_data = String[]
+        valid_cols = []
+        for (solver_idx, solver) in enumerate(SOLVER_NAMES)
+            if solver_idx <= size(perf_matrix_for_delta, 2) && !all(isnan, perf_matrix_for_delta[:, solver_idx])
+                push!(solvers_with_data, String(solver))
+                push!(valid_cols, solver_idx)
+            end
         end
-    end
-    
-    if length(solvers_with_data) < 2
-        println("Precisamos de pelo menos 2 solvers com dados válidos para criar o performance profile.")
-        return nothing
-    end
-    
-    # Filtrar a matriz para incluir apenas solvers com dados
-    valid_cols = []
-    for (solver_idx, solver) in enumerate(SOLVER_NAMES)
-        if solver_idx <= size(perf_matrix, 2) && !all(isnan, perf_matrix[:, solver_idx])
-            push!(valid_cols, solver_idx)
+        
+        if length(solvers_with_data) < 2
+            println("São necessários pelo menos 2 solvers com dados válidos para criar o perfil para delta = $delta.")
+            continue
         end
+        
+        perf_matrix_filtered = perf_matrix_for_delta[:, valid_cols]
+        
+        # Criar o gráfico
+        delta_str_title = replace(string(delta), ".0" => "")
+        title_text = "Performance Profile - $(METRICS[metric]) (δ = $delta_str_title)"
+        
+        p = performance_profile(PlotsBackend(), perf_matrix_filtered, solvers_with_data, title=title_text)
+        
+        # Criar estrutura de pastas organizadas por delta
+        delta_str_folder = replace(string(delta), "." => "-")
+        output_dir = datadir("plots", delta_str_folder)
+        mkpath(output_dir)
+        
+        # Salvar o gráfico (sem delta no nome do arquivo)
+        filename_base = replace(basename(filepath), ".jld2" => "")
+        output_file = joinpath(output_dir, "perf_profile_$(metric)_$(filename_base).png")
+        savefig(p, output_file)
+        println("Performance profile para δ=$delta salvo em: $output_file")
+    end
+end
+
+"""
+Cria performance profiles para todas as métricas disponíveis
+"""
+function create_all_performance_profiles(filepath::String)
+    println("\n=== Gerando Performance Profiles para todas as métricas ===")
+    
+    for (metric, description) in METRICS
+        println("\n--- Processando métrica: $metric ($description) ---")
+        create_performance_profile(filepath, metric)
     end
     
-    perf_matrix_filtered = perf_matrix[:, valid_cols]
-    
-    # Criar o gráfico
-    title_text = "Performance Profile - $(METRICS[metric])"
-    
-    p = performance_profile(PlotsBackend(), perf_matrix_filtered, solvers_with_data, title=title_text)
-    
-    # Salvar o gráfico
-    output_dir = datadir("plots")
-    mkpath(output_dir)
-    
-    filename_base = replace(basename(filepath), ".jld2" => "")
-    output_file = joinpath(output_dir, "perf_profile_$(metric)_$(filename_base).png")
-    savefig(p, output_file)
-    println("Performance profile salvo em: $output_file")
-    
-    return p
+    println("\n=== Todos os Performance Profiles foram gerados ===")
 end
 
 # ========================================================================================
@@ -165,6 +190,7 @@ function main()
     for (i, (metric, description)) in enumerate(METRICS)
         println("$i. $metric ($description)")
     end
+    println("$(length(METRICS) + 1). Todas as métricas")
     
     print("Digite o número da métrica: ")
     metric_choice = parse(Int, readline())
@@ -172,14 +198,17 @@ function main()
     metrics_list = collect(keys(METRICS))
     if 1 <= metric_choice <= length(metrics_list)
         selected_metric = metrics_list[metric_choice]
+        # Criar o performance profile para uma métrica específica
+        filepath = datadir("sims", selected_file)
+        create_performance_profile(filepath, selected_metric)
+    elseif metric_choice == length(metrics_list) + 1
+        # Criar performance profiles para todas as métricas
+        filepath = datadir("sims", selected_file)
+        create_all_performance_profiles(filepath)
     else
         println("Escolha inválida.")
         return
     end
-    
-    # Criar o performance profile
-    filepath = datadir("sims", selected_file)
-    create_performance_profile(filepath, selected_metric)
     
     println("\nAnálise concluída!")
 end

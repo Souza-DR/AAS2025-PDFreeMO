@@ -345,8 +345,8 @@ Cria e salva um gráfico dos pontos finais para um único valor de delta.
 - `String`: Caminho do arquivo salvo
 
 # Note
-Esta função cria o gráfico e o salva no diretório `data/plots/` com um nome
-baseado no problema, delta e arquivo de origem.
+Esta função cria o gráfico e o salva no diretório `data/plots/comparison/PROBLEMA/` com um nome
+baseado no solver, delta e arquivo de origem.
 """
 function save_single_delta_plot(problem_name::Symbol, solver_name::String, delta::T, final_points::Vector{Vector{T}}, filepath::String) where T<:Real
     println("\n=== Criando plot para problema: $problem_name, solver: $solver_name com δ = $delta ===")
@@ -365,12 +365,13 @@ function save_single_delta_plot(problem_name::Symbol, solver_name::String, delta
     delta_str = replace(string(delta), "." => "-")
     filename_base = replace(basename(filepath), ".jld2" => "")
     
-    # Criar diretório de saída
-    output_dir = datadir("plots")
+    # Criar diretório de saída organizado por problema
+    problem_str = string(problem_name)
+    output_dir = datadir("plots", "comparison", problem_str)
     mkpath(output_dir)
     
-    # Salvar o plot
-    output_file = joinpath(output_dir, "single_delta_$(problem_name)_$(solver_name)_delta_$(delta_str)_$(filename_base).png")
+    # Salvar o plot (sem problem_name no nome do arquivo)
+    output_file = joinpath(output_dir, "single_delta_$(solver_name)_delta_$(delta_str)_$(filename_base).png")
     savefig(p, output_file)
     println("Plot salvo em: $output_file")
     

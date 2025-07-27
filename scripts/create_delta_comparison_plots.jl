@@ -56,16 +56,57 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
     # Criar o plot comparativo
     p = AAS2025DFreeMO.create_delta_comparison_plot(problem_name, solver_name, deltas, final_points_dict)
     
-    # Salvar o plot
-    output_dir = datadir("plots")
+    # Criar estrutura de pastas organizadas por problema
+    problem_str = string(problem_name)
+    output_dir = datadir("plots", "comparison", problem_str)
     mkpath(output_dir)
     
+    # Salvar o plot (sem problem_name no nome do arquivo)
     filename_base = replace(basename(filepath), ".jld2" => "")
-    output_file = joinpath(output_dir, "delta_comparison_$(problem_name)_$(solver_name)_$(filename_base).png")
+    output_file = joinpath(output_dir, "delta_comparison_$(solver_name)_$(filename_base).png")
     savefig(p, output_file)
     println("Plot comparativo salvo em: $output_file")
     
     return p
+end
+
+"""
+Cria plots comparativos de deltas para todos os problemas biobjetivos disponíveis
+"""
+function create_all_delta_comparison_plots(filepath::String)
+    println("\n=== Gerando Plots Comparativos de Deltas para todos os problemas ===")
+    
+    # Listar problemas biobjetivos disponíveis
+    biobjective_problems = AAS2025DFreeMO.list_biobjective_problems(filepath)
+    
+    if isempty(biobjective_problems)
+        println("Nenhum problema biobjetivo encontrado para análise.")
+        return
+    end
+    
+    println("Problemas encontrados: $biobjective_problems")
+    
+    # Para cada problema, criar plots para todos os solvers disponíveis
+    for problem in biobjective_problems
+        println("\n--- Processando problema: $problem ---")
+        
+        # Listar solvers para o problema selecionado
+        available_solvers = AAS2025DFreeMO.list_solvers_for_problem(filepath, problem)
+        
+        if isempty(available_solvers)
+            println("Nenhum solver encontrado para o problema '$problem'.")
+            continue
+        end
+        
+        println("Solvers encontrados para '$problem': $(join(available_solvers, ", "))")
+        
+        # Criar um plot para cada solver
+        for solver in available_solvers
+            create_and_save_delta_plot(filepath, problem, solver)
+        end
+    end
+    
+    println("\n=== Todos os Plots Comparativos de Deltas foram gerados ===")
 end
 
 # ========================================================================================
@@ -124,12 +165,18 @@ function main()
         for (i, problem) in enumerate(biobjective_problems)
             println("$i. $problem")
         end
+        println("$(length(biobjective_problems) + 1). Todos os problemas")
         
         print("Digite o número do problema: ")
         problem_choice = parse(Int, readline())
         
         if 1 <= problem_choice <= length(biobjective_problems)
             selected_problem = biobjective_problems[problem_choice]
+        elseif problem_choice == length(biobjective_problems) + 1
+            # Criar plots para todos os problemas
+            create_all_delta_comparison_plots(filepath)
+            println("\nAnálise concluída!")
+            return
         else
             println("Escolha inválida.")
             return
