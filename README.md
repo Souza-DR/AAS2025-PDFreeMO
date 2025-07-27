@@ -29,7 +29,7 @@ O coração deste repositório é o módulo `AAS2025DFreeMO`, que exporta um con
 
 -   `generate_experiment_configs(...)`: Gera um vetor de objetos `ExperimentConfig` com base em listas de problemas, solvers, deltas e número de execuções.
 -   `run_experiment(...)`: Recebe um vetor de `ExperimentConfig` e executa todos os experimentos, retornando um vetor de `ExperimentResult`.
--   `save_final_results(...)`: Salva um vetor de `ExperimentResult` em um arquivo JLD2, utilizando uma estrutura hierárquica (`solver/problema/run_id`).
+-   `run_experiment_with_batch_saving(...)`: Executa experimentos com salvamento automático em lotes para evitar perda de dados.
 -   `get_solver_options(...)`: Converte uma `SolverConfiguration` genérica para a `struct` de opções específica exigida pelo `MOSolvers.jl`.
 -   `datas(...)`: Função utilitária para gerar as matrizes de dados usadas nos problemas robustos.
 
@@ -83,10 +83,11 @@ function main()
     println("Total de experimentos a serem executados: $(length(configs))")
 
     # --- 4. EXECUTAR OS EXPERIMENTOS ---
-    results = run_experiment(configs)
-    
-    # --- 5. SALVAR OS RESULTADOS ---
-    save_final_results(results, "zdt_benchmark")
+    results = run_experiment_with_batch_saving(
+        configs,
+        batch_size=50,
+        filename_base="zdt_benchmark"
+    )
     
     println("\nBenchmark concluído! Resultados salvos em: $(datadir("sims"))")
 end
@@ -96,13 +97,13 @@ main()
 
 ### 3. Análise dos Resultados
 
-Após a execução, os resultados são salvos no formato JLD2 em `data/sims/`. Você pode então carregar esses dados para análise posterior.
+Após a execução, os resultados são salvos automaticamente no formato JLD2 em `data/sims/` com um nome que inclui timestamp. Você pode então carregar esses dados para análise posterior.
 
 ```julia
 using JLD2
 
 # Carregar um resultado específico
-filepath = datadir("sims", "zdt_benchmark.jld2")
+filepath = datadir("sims", "zdt_benchmark_2025-01-27_14-30-15.jld2")
 loaded_data = jldopen(filepath, "r") do file
     # Acessar o resultado do solver DFreeMO, no problema ZDT1, delta 0.0, da primeira execução
     # Estrutura: solver/problem/delta/run_id
@@ -122,5 +123,7 @@ Onde:
 - `run_id`: Identificador da execução dentro de cada combinação (problema, solver, delta)
 
 **Nota importante**: Esta estrutura facilita análises comparativas por delta e é compatível com os scripts de análise existentes (`create_delta_comparison_plots.jl` e `create_performance_profiles.jl`). O `run_id` é único dentro de cada combinação (problema, solver, delta), garantindo que não haja conflitos na estrutura hierárquica.
+
+**Sistema de Salvamento em Lotes**: O método `run_experiment_with_batch_saving` salva automaticamente os resultados em lotes durante a execução, oferecendo proteção contra perda de dados em caso de interrupção. Os dados são salvos incrementalmente e consolidados em um único arquivo final com timestamp.
 
 Essa estrutura garante um fluxo de trabalho claro, reprodutível e fácil de estender para novos solvers e problemas. 

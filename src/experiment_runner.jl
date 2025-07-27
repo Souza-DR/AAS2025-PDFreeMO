@@ -1,4 +1,5 @@
 using Dates
+using Random # Adicionado para gerar nomes de arquivos temporários únicos
 
 """
 Gera todas as configurações de experimentos com identificadores únicos por delta.
@@ -62,6 +63,58 @@ function generate_experiment_configs(problems, solvers, nrun, deltas, common_opt
     end
 
     return configs
+end
+
+"""
+Salva um vetor de resultados em um arquivo JLD2.
+Função interna para ser usada por `save_final_results` e salvamento em lote.
+"""
+function _save_results_to_jld2(filepath::String, results::Vector{<:ExperimentResult})
+    jldopen(filepath, "w") do file
+        for result in results
+            delta_str = replace(string(result.delta), "." => "-")
+            key = "$(result.solver_name)/$(result.problem_name)/delta_$(delta_str)/run_$(result.run_id)"
+            file[key] = result
+        end
+    end
+end
+
+"""
+Copia recursivamente o conteúdo de um grupo JLD2 de origem para um destino.
+"""
+function _copy_jld2_contents(source::Union{JLD2.Group, JLD2.JLDFile}, dest::Union{JLD2.Group, JLD2.JLDFile})
+    for key in keys(source)
+        if JLD2.haskey(dest, key)
+            obj_source = source[key]
+            obj_dest = dest[key]
+            
+            if obj_source isa JLD2.Group && obj_dest isa JLD2.Group
+                _copy_jld2_contents(obj_source, obj_dest)
+            else
+                println("Aviso: A chave '$key' causou um conflito. Sobrescrevendo o destino.")
+                dest[key] = obj_source
+            end
+        else
+            obj_source = source[key]
+            if obj_source isa JLD2.Group
+                new_group = JLD2.Group(dest, key)
+                _copy_jld2_contents(obj_source, new_group)
+            else
+                dest[key] = obj_source
+            end
+        end
+    end
+end
+
+"""
+Anexa resultados de um arquivo JLD2 temporário para um arquivo final.
+"""
+function append_from_jld2(final_filepath::String, temp_filepath::String)
+    jldopen(final_filepath, "a+") do final_file
+        jldopen(temp_filepath, "r") do temp_file
+            _copy_jld2_contents(temp_file, final_file)
+        end
+    end
 end
 
 """
@@ -130,6 +183,72 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
 end
 
 """
+Executa experimentos com salvamento em lotes para evitar perda de dados.
+
+# Arguments
+- `configs`: Vetor de configurações de experimentos.
+- `batch_size`: Número de resultados a serem salvos em cada lote.
+- `filename_base`: Nome base para o arquivo de resultados "vivo".
+
+# Returns
+- `Vector{ExperimentResult{T}}`: Vetor com todos os resultados coletados.
+"""
+function run_experiment_with_batch_saving(
+    configs::Vector{ExperimentConfig{T}};
+    batch_size::Int = 50,
+    filename_base::String = "benchmark_live"
+) where T
+    all_results = ExperimentResult{T}[]
+    
+    if length(configs) <= batch_size
+        println("Total de experimentos ($(length(configs))) não é maior que o tamanho do lote ($batch_size). Nenhum salvamento em lote ocorrerá.")
+        for config in configs
+            result = run_single_experiment(config)
+            push!(all_results, result)
+        end
+        return all_results
+    end
+
+    current_batch = ExperimentResult{T}[]
+    timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
+    final_filepath = datadir("sims", "$(filename_base)_$(timestamp).jld2")
+    
+    println("Salvamento em lote ativado. Resultados intermediários serão salvos em: $final_filepath")
+    mkpath(datadir("sims"))
+
+    for (i, config) in enumerate(configs)
+        result = run_single_experiment(config)
+        push!(all_results, result)
+        push!(current_batch, result)
+
+        if length(current_batch) >= batch_size || i == length(configs)
+            println("\nProcessando lote. Salvando $(length(current_batch)) resultados...")
+            
+            temp_filename = "temp_batch_$(randstring(8)).jld2"
+            temp_filepath = joinpath(datadir("sims"), temp_filename)
+            
+            try
+                _save_results_to_jld2(temp_filepath, current_batch)
+                println("Lote temporário salvo em: $temp_filepath")
+
+                append_from_jld2(final_filepath, temp_filepath)
+                println("Lote anexado a: $final_filepath")
+            finally
+                if isfile(temp_filepath)
+                    rm(temp_filepath)
+                    println("Arquivo temporário removido.")
+                end
+            end
+            
+            empty!(current_batch)
+        end
+    end
+
+    println("\nExecução de experimentos em lote concluída.")
+    return all_results
+end
+
+"""
 Cria resultado para experimento que falhou
 """
 function create_failed_result(config::ExperimentConfig{T}, nobj::Int) where T
@@ -170,9 +289,6 @@ end
 Salva um vetor de resultados de experimentos em um arquivo JLD2,
 organizando os dados de forma hierárquica.
 
-A estrutura de salvamento segue o padrão:
-`solver_name / problem_name / delta / run_id`
-
 # Arguments
 - `results::Vector{<:ExperimentResult}`: Vetor com os resultados dos experimentos.
 - `filename_base::String`: Nome base para o arquivo de saída (sem extensão).
@@ -181,8 +297,15 @@ A estrutura de salvamento segue o padrão:
 Cada resultado é salvo na estrutura hierárquica que inclui o delta, facilitando
 análises comparativas por delta. O `run_id` é único dentro de cada combinação
 (problema, solver, delta), garantindo que não haja conflitos.
+
+# Deprecated
+Esta função é mantida apenas para compatibilidade. O sistema de salvamento em lotes
+(`run_experiment_with_batch_saving`) é agora o método preferido, pois oferece maior
+segurança contra perda de dados.
 """
 function save_final_results(results::Vector{<:ExperimentResult}, filename_base::String)
+    @warn "save_final_results is deprecated. Use run_experiment_with_batch_saving instead for better data safety."
+    
     # Garantir que o diretório de simulações exista
     mkpath(datadir("sims"))
     
@@ -194,19 +317,8 @@ function save_final_results(results::Vector{<:ExperimentResult}, filename_base::
     
     println("Salvando $(length(results)) resultados em: $filepath")
     
-    # Abrir o arquivo JLD2 em modo de "w" (write/overwrite) para evitar conflitos
-    jldopen(filepath, "w") do file
-        for result in results
-            # Criar a chave hierárquica para o resultado incluindo o delta
-            # Formato: solver_name/problem_name/delta/run_id
-            delta_str = replace(string(result.delta), "." => "-")
-            key = "$(result.solver_name)/$(result.problem_name)/delta_$(delta_str)/run_$(result.run_id)"
-            
-            # Salvar o objeto de resultado diretamente com a chave hierárquica
-            # O JLD2 criará os grupos intermediários automaticamente
-            file[key] = result
-        end
-    end
+    # Usar a nova função interna para salvar os resultados
+    _save_results_to_jld2(filepath, results)
     
     println("Salvamento concluído.")
 end

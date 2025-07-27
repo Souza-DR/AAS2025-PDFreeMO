@@ -67,9 +67,12 @@ function main()
     )
     println("Total de experimentos: $(length(configs))")
 
-    results = AAS2025DFreeMO.run_experiment(configs)
-    
-    AAS2025DFreeMO.save_final_results(results, "benchmark_complete")
+    # Executar com salvamento em lote para evitar perda de dados
+    results = AAS2025DFreeMO.run_experiment_with_batch_saving(
+        configs,
+        batch_size=50,
+        filename_base="benchmark_live_biobjective"
+    )
     
     println("\nBenchmark concluído! Resultados salvos em: $(datadir("sims"))")
 end

@@ -16,7 +16,7 @@ module AAS2025DFreeMO
     export ExperimentResult, ExperimentConfig
     export datas, safe_evalf_solver, safe_evalJf_solver
     export CommonSolverOptions, SolverSpecificOptions, SolverConfiguration, get_solver_options
-    export generate_experiment_configs, run_experiment, save_final_results
+    export generate_experiment_configs, run_experiment, save_final_results, run_experiment_with_batch_saving
     
     # Funções de análise de dados
     export list_jld2_files, get_file_metadata
