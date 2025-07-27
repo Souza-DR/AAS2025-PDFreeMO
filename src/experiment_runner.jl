@@ -1,7 +1,22 @@
 using Dates
 
 """
-Gera todas as configurações de experimentos
+Gera todas as configurações de experimentos com identificadores únicos por delta.
+
+# Arguments
+- `problems`: Lista de problemas a serem testados
+- `solvers`: Lista de solvers a serem testados  
+- `nrun`: Número de execuções por combinação (problema, solver, delta)
+- `deltas`: Lista de valores de delta a serem testados
+- `common_options`: Opções comuns para todos os solvers
+- `solver_specific_options`: Opções específicas por solver (opcional)
+
+# Returns
+- `Vector{ExperimentConfig{T}}`: Lista de configurações de experimentos
+
+# Note
+Cada configuração recebe um `run_id` único dentro de cada combinação (problema, solver, delta),
+garantindo que não haja conflitos na estrutura de dados hierárquica.
 """
 function generate_experiment_configs(problems, solvers, nrun, deltas, common_options::CommonSolverOptions{T}; solver_specific_options::Dict{Symbol, SolverSpecificOptions{T}} = Dict{Symbol, SolverSpecificOptions{T}}()) where T
     configs = ExperimentConfig{T}[]
@@ -30,11 +45,11 @@ function generate_experiment_configs(problems, solvers, nrun, deltas, common_opt
                 specific_opts = get(solver_specific_options, solver_sym, SolverSpecificOptions{T}())
                 solver_config = SolverConfiguration(common_options, specific_opts)
 
-                for (trial_id, x0) in enumerate(initial_points)
+                for (trial_idx, x0) in enumerate(initial_points)
                     config = ExperimentConfig(
                         solver_sym,
                         problem_sym,
-                        trial_id,
+                        trial_idx,  # run_id único dentro de cada (problema, solver, delta)
                         delta,
                         copy(x0),
                         solver_config,
@@ -156,11 +171,16 @@ Salva um vetor de resultados de experimentos em um arquivo JLD2,
 organizando os dados de forma hierárquica.
 
 A estrutura de salvamento segue o padrão:
-`solver_name / problem_name / run_id`
+`solver_name / problem_name / delta / run_id`
 
 # Arguments
 - `results::Vector{<:ExperimentResult}`: Vetor com os resultados dos experimentos.
 - `filename_base::String`: Nome base para o arquivo de saída (sem extensão).
+
+# Note
+Cada resultado é salvo na estrutura hierárquica que inclui o delta, facilitando
+análises comparativas por delta. O `run_id` é único dentro de cada combinação
+(problema, solver, delta), garantindo que não haja conflitos.
 """
 function save_final_results(results::Vector{<:ExperimentResult}, filename_base::String)
     # Garantir que o diretório de simulações exista
@@ -177,11 +197,13 @@ function save_final_results(results::Vector{<:ExperimentResult}, filename_base::
     # Abrir o arquivo JLD2 em modo de "w" (write/overwrite) para evitar conflitos
     jldopen(filepath, "w") do file
         for result in results
-            # Criar a chave hierárquica para o resultado
-            key = "$(result.solver_name)/$(result.problem_name)/run_$(result.run_id)"
+            # Criar a chave hierárquica para o resultado incluindo o delta
+            # Formato: solver_name/problem_name/delta/run_id
+            delta_str = replace(string(result.delta), "." => "-")
+            key = "$(result.solver_name)/$(result.problem_name)/delta_$(delta_str)/run_$(result.run_id)"
             
             # Salvar o objeto de resultado diretamente com a chave hierárquica
-            # O JLD2 criará os grupos intermediários (solver/problema) automaticamente
+            # O JLD2 criará os grupos intermediários automaticamente
             file[key] = result
         end
     end

@@ -104,11 +104,23 @@ using JLD2
 # Carregar um resultado específico
 filepath = datadir("sims", "zdt_benchmark.jld2")
 loaded_data = jldopen(filepath, "r") do file
-    # Acessar o resultado do solver DFreeMO, no problema ZDT1, da primeira execução
-    file["DFreeMO/ZDT1/run_1"]
+    # Acessar o resultado do solver DFreeMO, no problema ZDT1, delta 0.0, da primeira execução
+    # Estrutura: solver/problem/delta/run_id
+    file["DFreeMO/ZDT1/delta_0-0/run_1"]
 end
 
 println("Resultado carregado: ", loaded_data)
 ```
+
+A estrutura hierárquica dos dados salvos segue o padrão:
+- `solver_name/problem_name/delta/run_id`
+
+Onde:
+- `solver_name`: Nome do solver (e.g., "DFreeMO", "ProxGrad")
+- `problem_name`: Nome do problema (e.g., "ZDT1", "AP2")  
+- `delta`: Valor do parâmetro de robustez (e.g., "delta_0-0" para δ = 0.0)
+- `run_id`: Identificador da execução dentro de cada combinação (problema, solver, delta)
+
+**Nota importante**: Esta estrutura facilita análises comparativas por delta e é compatível com os scripts de análise existentes (`create_delta_comparison_plots.jl` e `create_performance_profiles.jl`). O `run_id` é único dentro de cada combinação (problema, solver, delta), garantindo que não haja conflitos na estrutura hierárquica.
 
 Essa estrutura garante um fluxo de trabalho claro, reprodutível e fácil de estender para novos solvers e problemas. 

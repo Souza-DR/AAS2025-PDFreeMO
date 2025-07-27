@@ -59,12 +59,13 @@ Extrai metadados básicos de um arquivo JLD2 de experimentos.
 - `Dict{String, Any}`: Dicionário com metadados do arquivo contendo:
   - `solvers`: Lista de solvers disponíveis
   - `problems`: Lista de problemas disponíveis
+  - `deltas`: Lista de deltas disponíveis
   - `run_ids`: Lista de run_ids disponíveis
   - `total_results`: Número total de resultados
 
 # Note
 Esta função abre o arquivo e navega pela estrutura hierárquica para extrair
-informações básicas sobre o conteúdo.
+informações básicas sobre o conteúdo. A estrutura é: solver/problem/delta/run_id
 """
 function get_file_metadata(filepath::String)
     metadata = Dict{String, Any}()
@@ -74,8 +75,9 @@ function get_file_metadata(filepath::String)
         available_solvers = collect(keys(file))
         metadata["solvers"] = available_solvers
         
-        # Obter lista de problemas e run_ids
+        # Obter lista de problemas, deltas e run_ids
         problems = Set{String}()
+        deltas = Set{Float64}()
         run_ids = Set{Int}()
         total_results = 0
         
@@ -84,19 +86,31 @@ function get_file_metadata(filepath::String)
             for problem in keys(solver_group)
                 push!(problems, problem)
                 
-                # Obter run_ids deste problema
+                # Navegar pela estrutura: solver/problem/delta/run_id
                 problem_group = solver_group[problem]
-                for run_key in keys(problem_group)
-                    if startswith(run_key, "run_")
-                        run_id = parse(Int, replace(run_key, "run_" => ""))
-                        push!(run_ids, run_id)
-                        total_results += 1
+                for delta_key in keys(problem_group)
+                    if startswith(delta_key, "delta_")
+                        # Extrair valor do delta
+                        delta_str = replace(delta_key, "delta_" => "")
+                        delta_val = parse(Float64, replace(delta_str, "-" => "."))
+                        push!(deltas, delta_val)
+                        
+                        # Obter run_ids deste delta
+                        delta_group = problem_group[delta_key]
+                        for run_key in keys(delta_group)
+                            if startswith(run_key, "run_")
+                                run_id = parse(Int, replace(run_key, "run_" => ""))
+                                push!(run_ids, run_id)
+                                total_results += 1
+                            end
+                        end
                     end
                 end
             end
         end
         
         metadata["problems"] = sort(collect(problems))
+        metadata["deltas"] = sort(collect(deltas))
         metadata["run_ids"] = sort(collect(run_ids))
         metadata["total_results"] = total_results
     end
@@ -118,6 +132,7 @@ Lista todos os solvers disponíveis para um problema específico em um arquivo J
 
 # Note
 Esta função navega pela estrutura do arquivo JLD2 e verifica cada solver.
+A estrutura é: solver/problem/run_id
 """
 function list_solvers_for_problem(filepath::String, problem_name::Symbol)
     solvers = String[]
@@ -170,7 +185,7 @@ Lista todos os problemas biobjetivos disponíveis em um arquivo JLD2.
 
 # Note
 Esta função navega pela estrutura do arquivo JLD2 e verifica cada problema
-encontrado para determinar se é biobjetivo.
+encontrado para determinar se é biobjetivo. A estrutura é: solver/problem/run_id
 """
 function list_biobjective_problems(filepath::String)
     println("\nProcurando problemas biobjetivos no arquivo: $(basename(filepath))")
@@ -256,6 +271,7 @@ Extrai dados de performance de um arquivo JLD2 para criar uma matriz de performa
 # Note
 Esta função cria uma matriz onde cada linha representa uma instância (problema × run_id)
 e cada coluna representa um solver. Valores NaN indicam execuções falhadas ou dados ausentes.
+A estrutura do arquivo é: solver/problem/run_id
 """
 function extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
     println("\nExtraindo dados de performance do arquivo: $(basename(filepath))")
@@ -363,6 +379,7 @@ Extrai dados de um arquivo JLD2 para um problema e solver específicos, organiza
 # Note
 Esta função é específica para análise de problemas biobjetivos, onde cada ponto final
 é um vetor [f₁, f₂]. Os dados são organizados por delta para facilitar comparações.
+A estrutura do arquivo é: solver/problem/delta/run_id
 """
 function extract_problem_data(filepath::String, problem_name::Symbol, solver_name::String)
     println("\nExtraindo dados para o problema: $problem_name, solver: $solver_name")
@@ -384,26 +401,35 @@ function extract_problem_data(filepath::String, problem_name::Symbol, solver_nam
         if haskey(solver_group, string(problem_name))
             problem_group = solver_group[string(problem_name)]
             
-            # Para cada execução (run_id)
-            for run_key in keys(problem_group)
-                if startswith(run_key, "run_")
-                    result = problem_group[run_key]
+            # Navegar pela estrutura: solver/problem/delta/run_id
+            for delta_key in keys(problem_group)
+                if startswith(delta_key, "delta_")
+                    # Extrair valor do delta
+                    delta_str = replace(delta_key, "delta_" => "")
+                    delta_val = parse(Float64, replace(delta_str, "-" => "."))
                     
-                    # Verificar se a execução foi bem-sucedida
-                    if result.success
-                        delta = result.delta
-                        final_point = result.final_objective_value
-                        
-                        # Adicionar delta à lista
-                        push!(deltas, delta)
-                        
-                        # Inicializar lista de pontos para este delta se necessário
-                        if !haskey(final_points_dict, delta)
-                            final_points_dict[delta] = Vector{Vector{Float64}}()
+                    # Obter run_ids deste delta
+                    delta_group = problem_group[delta_key]
+                    for run_key in keys(delta_group)
+                        if startswith(run_key, "run_")
+                            result = delta_group[run_key]
+                            
+                            # Verificar se a execução foi bem-sucedida
+                            if result.success
+                                final_point = result.final_objective_value
+                                
+                                # Adicionar delta à lista
+                                push!(deltas, delta_val)
+                                
+                                # Inicializar lista de pontos para este delta se necessário
+                                if !haskey(final_points_dict, delta_val)
+                                    final_points_dict[delta_val] = Vector{Vector{Float64}}()
+                                end
+                                
+                                # Adicionar ponto final à lista
+                                push!(final_points_dict[delta_val], final_point)
+                            end
                         end
-                        
-                        # Adicionar ponto final à lista
-                        push!(final_points_dict[delta], final_point)
                     end
                 end
             end
@@ -443,6 +469,7 @@ Conta o número de execuções bem-sucedidas para um problema específico.
 
 # Note
 Esta função é útil para verificar a qualidade dos dados antes de realizar análises.
+A estrutura do arquivo é: solver/problem/run_id
 """
 function get_successful_results_count(filepath::String, problem_name::Symbol)
     successful_count = 0
@@ -488,7 +515,7 @@ Valida se os dados de um problema biobjetivo estão corretos.
 
 # Note
 Esta função verifica se todos os pontos finais têm exatamente 2 coordenadas,
-conforme esperado para problemas biobjetivos.
+conforme esperado para problemas biobjetivos. A estrutura do arquivo é: solver/problem/run_id
 """
 function validate_biobjective_data(filepath::String, problem_name::Symbol)
     println("\nValidando dados biobjetivos para problema: $problem_name")
