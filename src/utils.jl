@@ -93,23 +93,73 @@ function safe_evalJf_solver(problem, x)
     end
 end
 
-function plot_objective_space(problem; grid_points=100)
-    # WARNING: This image dont get f + h, only f
-    println("Gerando a imagem do espaço objetivo para $(problem.name)...")
+"""
+    plot_objective_space(problem; grid_points=100)
 
+Generates a plot of the objective space image for biobjective problems (2 objectives).
+The function evaluates the vector function on a grid of points from the decision space
+and plots the resulting objective values.
+
+# Arguments
+- `problem`: MOProblems.jl problem (must have exactly 2 objectives)
+- `grid_points::Int=100`: Number of grid points for each dimension
+
+# Returns
+- `Plots.Plot`: Created plot object
+
+# Note
+This function is specific for biobjective problems (2 objectives).
+"""
+function plot_objective_space(problem; grid_points=100)
+    # Extract the data points using the dedicated function
+    f1_vals, f2_vals = extract_objective_space_data(problem; grid_points=grid_points)
+    
+    # Create the plot
+    p = scatter(f1_vals, f2_vals,
+                ms=1, 
+                markerstrokewidth=0, 
+                alpha=0.3, 
+                color=:cornflowerblue,
+                label="Objective Space Image",
+                xlabel="F₁(x)",
+                ylabel="F₂(x)",
+                title="Objective Space Image for $(problem.name)",
+                grid=true,
+                legend=false)
+
+    return p
+end
+
+"""
+    extract_objective_space_data(problem; grid_points=100)
+
+Extracts objective space data points from a biobjective problem without creating a plot.
+
+# Arguments
+- `problem`: MOProblems.jl problem (must have exactly 2 objectives)
+- `grid_points::Int=100`: Number of grid points for each dimension
+
+# Returns
+- `Tuple{Vector{Float64}, Vector{Float64}}`: Arrays of f₁ and f₂ values
+"""
+function extract_objective_space_data(problem; grid_points=100)
+    # Check if the problem has exactly 2 objectives
     if problem.nobj != 2
-        println("Erro: Este script suporta apenas problemas com 2 objetivos.")
-        return nothing
+        error("This function supports only problems with 2 objectives. Problem $(problem.name) has $(problem.nobj) objectives.")
     end
+
+    println("Extracting objective space data for $(problem.name)...")
 
     f1_vals = Float64[]
     f2_vals = Float64[]
     
     n = problem.nvar
+    lb = problem.bounds[1]  # lower bound
+    ub = problem.bounds[2]  # upper bound
     
     if n == 1
-        # Para problemas com 1 variável, criar apenas uma linha
-        x_range = range(problem.bounds[1][1], problem.bounds[2][1], length=grid_points)
+        # For problems with 1 variable, create only a line
+        x_range = range(lb[1], ub[1], length=grid_points)
         for x1 in x_range
             x = [x1]
             result = safe_evalf(problem, x)
@@ -119,16 +169,23 @@ function plot_objective_space(problem; grid_points=100)
             end
         end
     else
-        # Para problemas com 2+ variáveis, criar uma grade 2D
-        x_range = range(problem.bounds[1][1], problem.bounds[2][1], length=grid_points)
-        y_range = range(problem.bounds[1][2], problem.bounds[2][2], length=grid_points)
+        # For problems with 2+ variables, create a 2D grid
+        # Use the first two variables to create the grid
+        x_range = range(lb[1], ub[1], length=grid_points)
+        y_range = range(lb[2], ub[2], length=grid_points)
         
         for x1 in x_range
             for x2 in y_range
-                # Criar vetor com as primeiras 2 variáveis e zeros para as demais
+                # Create vector with first 2 variables and mean values for the others
                 x = zeros(n)
                 x[1] = x1
                 x[2] = x2
+                
+                # For remaining variables, use the midpoint of the interval
+                for i in 3:n
+                    x[i] = (lb[i] + ub[i]) / 2
+                end
+                
                 result = safe_evalf(problem, x)
                 if result.success
                     push!(f1_vals, result.value[1])
@@ -138,16 +195,13 @@ function plot_objective_space(problem; grid_points=100)
         end
     end
 
-    p = scatter(f1_vals, f2_vals,
-                  ms=1, markerstrokewidth=0, alpha=0.3, color=:cornflowerblue,
-                  label="Imagem do Espaço Objetivo",
-                  xlabel="f₁(x)",
-                  ylabel="f₂(x)",
-                  title="Imagem do Espaço Objetivo para $(problem.name)",
-                  grid=true)
+    # Check if we have valid points
+    if isempty(f1_vals)
+        error("No valid points found for problem $(problem.name). Check the domain limits.")
+    end
 
-    println("Imagem do espaço objetivo gerada.")
-    return p
+    println("Extracted $(length(f1_vals)) objective space points.")
+    return f1_vals, f2_vals
 end
 
 # WARNING: This function dont work for now
@@ -164,8 +218,8 @@ function plot_trajectories(problem, solver, delta, x0)
     println("Gerando a imagem das trajetórias para $(problem.name)...")
 
     p = plot(title="Trajetórias de Otimização - Problema $(problem.name) ($(solver))",
-             xlabel="f₁(x)",
-             ylabel="f₂(x)",
+             xlabel="F₁(x)",
+             ylabel="F₂(x)",
              legend=:topright,
              grid=true)
 
