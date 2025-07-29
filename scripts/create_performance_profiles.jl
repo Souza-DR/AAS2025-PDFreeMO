@@ -2,7 +2,7 @@ using DrWatson
 @quickactivate "AAS2025-DFreeMO"
 using JLD2
 using BenchmarkProfiles
-using Plots
+using CairoMakie  # Usando apenas CairoMakie para formatos vetoriais
 using Statistics
 using Printf
 
@@ -25,9 +25,50 @@ const METRICS = Dict(
     "total_time" => "Tempo de execução (s)"
 )
 
+# Formatos de saída para os gráficos (apenas vetoriais)
+const OUTPUT_FORMATS = [:svg, :eps]
+
 # ========================================================================================
 # FUNÇÕES AUXILIARES
 # ========================================================================================
+
+"""
+    save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS)
+
+Saves the figure in specified formats (SVG, EPS) in separate subdirectories,
+with a name based on `name`.
+
+# Arguments
+- `fig`: The figure to save
+- `name::String`: Base name for the file
+- `base_dir::String`: Base directory where format-specific subdirectories will be created
+- `formats`: Array of formats to save (e.g., [:svg, :eps])
+
+# Returns
+- `Dict{Symbol,String}`: Dictionary mapping formats to saved file paths
+"""
+function save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS)
+    saved = Dict{Symbol,String}()
+    
+    for fmt in formats
+        # Create format-specific directory
+        format_dir = joinpath(base_dir, string(fmt))
+        mkpath(format_dir)
+        
+        # Create filename
+        fname = joinpath(format_dir, "$(name).$(fmt)")
+        
+        try
+            save(fname, fig)  # CairoMakie supports SVG, PDF, EPS
+            println("✓ Saved $fmt: $fname")
+            saved[fmt] = fname
+        catch e
+            println("✗ Failed to save $fmt for $name: $e")
+        end
+    end
+    
+    return saved
+end
 
 # Função list_jld2_files agora importada do módulo AAS2025DFreeMO
 
@@ -49,7 +90,7 @@ function extract_performance_data(filepath::String, metric::String)
 end
 
 """
-Cria e salva o performance profile
+Cria e salva o performance profile usando CairoMakie
 """
 function create_performance_profile(filepath::String, metric::String)
     # Extrair todos os dados de uma vez
@@ -57,12 +98,14 @@ function create_performance_profile(filepath::String, metric::String)
     
     if perf_matrix === nothing || isempty(perf_matrix)
         println("Não foi possível extrair dados de performance.")
-        return
+        return Dict{Float64, Dict{Symbol, String}}()
     end
 
     # Encontrar deltas únicos a partir das informações das instâncias
     unique_deltas = unique([info[2] for info in instance_info])
     println("\nDeltas encontrados: $unique_deltas. Gerando um perfil para cada um.")
+    
+    all_saved_files = Dict{Float64, Dict{Symbol, String}}()
     
     # Iterar sobre cada delta e criar um perfil de desempenho
     for delta in unique_deltas
@@ -114,23 +157,105 @@ function create_performance_profile(filepath::String, metric::String)
         
         perf_matrix_filtered = perf_matrix_for_delta[:, valid_cols]
         
-        # Criar o gráfico
-        delta_str_title = replace(string(delta), ".0" => "")
-        title_text = "Performance Profile - $(METRICS[metric]) (δ = $delta_str_title)"
-        
-        p = performance_profile(PlotsBackend(), perf_matrix_filtered, solvers_with_data, title=title_text)
-        
         # Criar estrutura de pastas organizadas por delta
         delta_str_folder = replace(string(delta), "." => "-")
-        output_dir = datadir("plots", delta_str_folder)
-        mkpath(output_dir)
+        base_dir = datadir("plots", delta_str_folder)
         
-        # Salvar o gráfico (sem delta no nome do arquivo)
+        # Preparar nome do arquivo
         filename_base = replace(basename(filepath), ".jld2" => "")
-        output_file = joinpath(output_dir, "perf_profile_$(metric)_$(filename_base).png")
-        savefig(p, output_file)
-        println("Performance profile para δ=$delta salvo em: $output_file")
+        output_name = "perf_profile_$(metric)_$(filename_base)"
+        
+        # Criar e salvar com CairoMakie
+        try
+            # Criar o gráfico com CairoMakie
+            fig = Figure(size=(800, 600))
+            ax = Axis(fig[1, 1], 
+                     title="Performance Profile - $(METRICS[metric]) (δ = $(replace(string(delta), ".0" => "")))",
+                     xlabel="Performance Ratio",
+                     ylabel="Fraction of Problems")
+            
+            # Calcular os dados do perfil de desempenho
+            T = perf_matrix_filtered
+            r = zeros(size(T))
+            
+            # Verificar se temos pelo menos uma linha válida
+            valid_rows = false
+            
+            # Para cada problema (linha)
+            for p = 1:size(T, 1)
+                # Verificar se temos valores válidos para este problema
+                row_values = filter(!isnan, T[p, :])
+                if isempty(row_values)
+                    # Pular problemas sem valores válidos
+                    continue
+                end
+                
+                valid_rows = true
+                
+                # Encontrar o melhor desempenho para este problema
+                minval = minimum(row_values)
+                
+                # Calcular a razão de desempenho
+                for s = 1:size(T, 2)
+                    if !isnan(T[p, s])
+                        r[p, s] = T[p, s] / minval
+                    else
+                        r[p, s] = NaN
+                    end
+                end
+            end
+            
+            # Se não temos linhas válidas, pular este delta
+            if !valid_rows
+                println("Nenhuma linha com dados válidos encontrada para delta = $delta.")
+                continue
+            end
+            
+            # Criar os dados para o gráfico
+            max_ratio = 5.0  # Limitar para melhor visualização
+            ratios = range(1.0, max_ratio, length=100)
+            
+            # Para cada solver, plotar sua curva
+            for s = 1:size(r, 2)
+                solver_name = solvers_with_data[s]
+                
+                # Calcular a fração de problemas resolvidos dentro de cada razão
+                fractions = Float64[]
+                for τ in ratios
+                    # Contar problemas resolvidos com razão <= τ
+                    count = 0
+                    total = 0
+                    for p = 1:size(r, 1)
+                        if !isnan(r[p, s])
+                            total += 1
+                            if r[p, s] <= τ
+                                count += 1
+                            end
+                        end
+                    end
+                    # Evitar divisão por zero
+                    push!(fractions, total > 0 ? count / total : 0.0)
+                end
+                
+                # Plotar a curva
+                lines!(ax, ratios, fractions, 
+                      label=solver_name, 
+                      linewidth=2)
+            end
+            
+            # Adicionar legenda
+            axislegend(ax)  # Usar o eixo explicitamente e sem posição personalizada
+            
+            # Salvar em formatos vetoriais
+            saved_files = save_figure(fig, output_name, base_dir)
+            all_saved_files[delta] = saved_files
+            
+        catch e
+            println("✗ Error creating vector formats: $e")
+        end
     end
+    
+    return all_saved_files
 end
 
 """
@@ -139,12 +264,18 @@ Cria performance profiles para todas as métricas disponíveis
 function create_all_performance_profiles(filepath::String)
     println("\n=== Gerando Performance Profiles para todas as métricas ===")
     
+    all_results = Dict{String, Any}()
+    
     for (metric, description) in METRICS
         println("\n--- Processando métrica: $metric ($description) ---")
-        create_performance_profile(filepath, metric)
+        results = create_performance_profile(filepath, metric)
+        all_results[metric] = results
     end
     
     println("\n=== Todos os Performance Profiles foram gerados ===")
+    println("Formatos disponíveis: $(join(string.(OUTPUT_FORMATS), ", "))")
+    
+    return all_results
 end
 
 # ========================================================================================
@@ -154,6 +285,7 @@ end
 function main()
     println("=== Gerador de Performance Profiles ===")
     println("Usando dados JLD2 do repositório AAS2025-DFreeMO")
+    println("Formatos de saída: $(join(string.(OUTPUT_FORMATS), ", "))")
     
     # Listar arquivos disponíveis
     jld2_files = list_jld2_files()
@@ -200,7 +332,21 @@ function main()
         selected_metric = metrics_list[metric_choice]
         # Criar o performance profile para uma métrica específica
         filepath = datadir("sims", selected_file)
-        create_performance_profile(filepath, selected_metric)
+        results = create_performance_profile(filepath, selected_metric)
+        
+        # Mostrar diretórios de saída
+        for delta in keys(results)
+            delta_str = replace(string(delta), "." => "-")
+            base_dir = datadir("plots", delta_str)
+            println("\nDiretórios de saída para delta = $delta:")
+            for fmt in OUTPUT_FORMATS
+                fmt_dir = joinpath(base_dir, string(fmt))
+                if isdir(fmt_dir)
+                    println("  - $(uppercase(string(fmt))): $fmt_dir")
+                end
+            end
+        end
+        
     elseif metric_choice == length(metrics_list) + 1
         # Criar performance profiles para todas as métricas
         filepath = datadir("sims", selected_file)
