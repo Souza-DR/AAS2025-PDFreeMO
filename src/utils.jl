@@ -94,43 +94,6 @@ function safe_evalJf_solver(problem, x)
 end
 
 """
-    plot_objective_space(problem; grid_points=100)
-
-Generates a plot of the objective space image for biobjective problems (2 objectives).
-The function evaluates the vector function on a grid of points from the decision space
-and plots the resulting objective values.
-
-# Arguments
-- `problem`: MOProblems.jl problem (must have exactly 2 objectives)
-- `grid_points::Int=100`: Number of grid points for each dimension
-
-# Returns
-- `Plots.Plot`: Created plot object
-
-# Note
-This function is specific for biobjective problems (2 objectives).
-"""
-function plot_objective_space(problem; grid_points=100)
-    # Extract the data points using the dedicated function
-    f1_vals, f2_vals = extract_objective_space_data(problem; grid_points=grid_points)
-    
-    # Create the plot
-    p = scatter(f1_vals, f2_vals,
-                ms=1, 
-                markerstrokewidth=0, 
-                alpha=0.3, 
-                color=:cornflowerblue,
-                label="Objective Space Image",
-                xlabel="F₁(x)",
-                ylabel="F₂(x)",
-                title="Objective Space Image for $(problem.name)",
-                grid=true,
-                legend=false)
-
-    return p
-end
-
-"""
     extract_objective_space_data(problem; grid_points=100)
 
 Extracts objective space data points from a biobjective problem without creating a plot.
@@ -188,8 +151,11 @@ function extract_objective_space_data(problem; grid_points=100)
                 
                 result = safe_evalf(problem, x)
                 if result.success
-                    push!(f1_vals, result.value[1])
-                    push!(f2_vals, result.value[2])
+                    if 1.0 == 1.0
+                    # if result.value[1] <= 0.5 && result.value[2] <= 1.0
+                        push!(f1_vals, result.value[1])
+                        push!(f2_vals, result.value[2])
+                    end
                 end
             end
         end

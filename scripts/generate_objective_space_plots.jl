@@ -7,7 +7,8 @@ using .AAS2025DFreeMO
 
 # List of biobjective problems to generate plots
 const PROBLEMS = [Symbol(p) for p in MOProblems.filter_problems(min_objs=2, max_objs=2)]
-const GRID_POINTS = 200
+# const PROBLEMS = [Symbol("AAS1")]
+const GRID_POINTS = 400
 
 println("Problems selected: $PROBLEMS")
 
@@ -90,7 +91,7 @@ function generate_objective_space_plot(problem_name::Symbol;
     
     # Plot the points
     scatter!(ax, f1_vals, f2_vals, 
-             markersize=2, 
+             markersize=4, 
              color=(:cornflowerblue, 0.3),
              label="Objective Space")
     
