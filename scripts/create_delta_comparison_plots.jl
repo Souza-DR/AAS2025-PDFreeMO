@@ -111,7 +111,7 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
             
             # Plotar os pontos
             scatter!(ax, f1_vals, f2_vals, 
-                    markersize=8, 
+                    markersize=12, 
                     color=:cornflowerblue,
                     label="δ = $delta")
             
@@ -172,7 +172,7 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
             
             # Plotar os pontos
             scatter!(ax, f1_vals, f2_vals, 
-                    markersize=8, 
+                    markersize=12, 
                     color=colors[i],
                     label="δ = $delta")
         end

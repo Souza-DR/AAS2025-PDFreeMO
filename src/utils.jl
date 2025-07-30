@@ -170,52 +170,79 @@ function extract_objective_space_data(problem; grid_points=100)
     return f1_vals, f2_vals
 end
 
-# WARNING: This function dont work for now
-function plot_trajectories(problem, solver, delta, x0)
+"""
+    plot_trajectories(problem::MOProblems.AbstractMOProblem, solver_name::String, delta::Real,
+                      x0::Vector{T}, f_final::Vector{T};
+                      formats::Vector{Symbol} = [:svg, :eps]) where {T<:Real}
 
-    # Criar diretórios se não existirem
-    for delta in DELTAS
-        delta_str = replace(string(delta), "." => "-")
-        mkpath("plots/$delta_str")
+Create and save a simple trajectory plot (bi-objective) that shows the image of the
+start point `x0` and the final objective value `f_final` returned by the solver.  A
+straight line connecting the two images is also drawn.
+
+The plot is saved in two vector formats (SVG and EPS) inside the directory
+`data/plots/trajectories/PROBLEM_NAME/DELTA_VALUE/{svg,eps}`.  The filename follows
+`trajectory_SOLVERNAME_delta_DELTA_FILENAME.{ext}` where `DELTA` has the dot replaced
+by a dash.
+
+# Arguments
+- `problem`: An instantiated MOProblems.jl problem (*must* have exactly two
+  objectives).
+- `solver_name::String`: Name of the solver that produced the result.  Only used for
+  naming the output file.
+- `delta::Real`: Robustness parameter, also used for the output path.
+- `x0::Vector{T}`: Initial point used by the solver (domain space).
+- `f_final::Vector{T}`: Objective values at the final point returned by the solver.
+- `formats`: Vector with the desired output formats.  **Only :svg and :eps are
+  recommended.**
+"""
+function plot_trajectories(problem::MOProblems.AbstractMOProblem, solver_name::String, delta::Real,
+                           x0::Vector{T}, f_final::Vector{T};
+                           formats::Vector{Symbol} = [:svg, :eps]) where {T<:Real}
+    # Sanity checks -----------------------------------------------------------
+    @assert problem.nobj == 2 "This helper currently supports only bi-objective problems"
+    @assert length(f_final) == 2 "Final objective vector must have length 2."
+
+    # Evaluate the initial objective safely (may fail due to domain violations)
+    res = safe_evalf(problem, x0)
+    if !res.success
+        println("⚠️  Could not evaluate initial point – skipping plot.")
+        return Dict{Symbol, String}()
     end
-    mkpath("plots/deltas")
+    f_init = res.value
+    @assert length(f_init) == 2 "Initial objective vector must have length 2."
 
-    # WARNING: This image get f + h, not only f
-    println("Gerando a imagem das trajetórias para $(problem.name)...")
+    # Build the figure --------------------------------------------------------
+    fig = Figure(size = (800, 600))
+    ax  = Axis(fig[1, 1];
+               title  = "Trajectory – $(problem.name) ($(solver_name), δ = $(delta))",
+               xlabel = "F₁(x)",
+               ylabel = "F₂(x)")
 
-    p = plot(title="Trajetórias de Otimização - Problema $(problem.name) ($(solver))",
-             xlabel="F₁(x)",
-             ylabel="F₂(x)",
-             legend=:topright,
-             grid=true)
+    # Plot initial and final points and the connecting line
+    scatter!(ax, [f_init[1]],  [f_init[2]];  markersize = 7, color = :gray,  label = "init")
+    scatter!(ax, [f_final[1]], [f_final[2]]; markersize = 7, color = :red,   label = "final")
+    lines!(ax,   [f_init[1], f_final[1]], [f_init[2], f_final[2]]; color = :black, linewidth = 1)
 
-    # Plotar trajetória
-    scatter!(p, [F0[1]], [F0[2]], ms=3, color=:gray, alpha=0.6, label=false)
-    scatter!(p, [result.Fval[1]], [result.Fval[2]], ms=3, color=:red, alpha=0.8, label=false)
-    plot!(p, [F0[1], result.Fval[1]], [F0[2], result.Fval[2]], 
-        color=:black, alpha=0.4, linewidth=1, label=false)
+    # Prepare output paths ----------------------------------------------------
+    problem_dir = datadir("plots", "trajectories", string(problem.name))
+    delta_str   = replace(string(delta), "." => "-")
+    base_dir    = joinpath(problem_dir, delta_str)
 
-    # Combinar e salvar plots
-    if objective_space_plot !== nothing && trajectories_plot !== nothing
-        combined_plot = plot(objective_space_plot, trajectories_plot, 
-                           layout = (1, 2), 
-                           size = (1200, 600))
-        
-        delta_str = replace(string(delta), "." => "-")
-        filename = "plots/$delta_str/pareto_$(problem_name)_DFreeMO_delta_$delta_str.png"
-        savefig(combined_plot, filename)
-        println("Gráfico salvo como '$filename'")
+    saved = Dict{Symbol, String}()
+    for fmt in formats
+        fmt_dir = joinpath(base_dir, string(fmt))
+        mkpath(fmt_dir)
+        fname   = joinpath(fmt_dir, "trajectory_$(solver_name)_delta_$(delta_str).$(fmt)")
+        try
+            save(fname, fig)
+            saved[fmt] = fname
+            println("✓ Saved $(uppercase(string(fmt))) at $fname")
+        catch e
+            println("✗ Failed to save $(fmt) – $e")
+        end
     end
 
-    # Criar plot comparativo de deltas
-    if !isempty(final_points_dict)
-        delta_comparison_plot = create_delta_comparison_plot(problem_instance, DELTAS, final_points_dict)
-        filename = "plots/deltas/$(problem_name)_delta_comparison.png"
-        savefig(delta_comparison_plot, filename)
-        println("Gráfico comparativo de deltas salvo como '$filename'")
-    end
-
-    return p
+    return saved
 end
 
 """
