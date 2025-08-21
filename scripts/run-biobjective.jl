@@ -2,9 +2,9 @@ using DrWatson
 using MOProblems
 using MOSolvers
 using Random
-@quickactivate "AAS2025-DFreeMO"
-include(srcdir("AAS2025DFreeMO.jl"))
-using .AAS2025DFreeMO
+@quickactivate "AAS2025-PDFreeMO"
+include(srcdir("AAS2025PDFreeMO.jl"))
+using .AAS2025PDFreeMO
 
 # ========================================================================================
 # --- CONFIGURAÇÃO CENTRALIZADA DOS SOLVERS ---

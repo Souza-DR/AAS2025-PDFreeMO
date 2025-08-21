@@ -1,9 +1,9 @@
 using DrWatson
 using MOProblems
 using CairoMakie     # backend com suporte a EPS, SVG, PDF
-@quickactivate "AAS2025-DFreeMO"
-include(srcdir("AAS2025DFreeMO.jl"))
-using .AAS2025DFreeMO
+@quickactivate "AAS2025-PDFreeMO"
+include(srcdir("AAS2025PDFreeMO.jl"))
+using .AAS2025PDFreeMO
 
 # List of biobjective problems to generate plots
 const PROBLEMS = [Symbol(p) for p in MOProblems.filter_problems(min_objs=2, max_objs=2)]

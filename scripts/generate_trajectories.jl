@@ -5,7 +5,7 @@
 # problem(s) to analyse.
 
 using DrWatson
-@quickactivate "AAS2025-DFreeMO"
+@quickactivate "AAS2025-PDFreeMO"
 
 using JLD2
 using CairoMakie      # Vector-graphics backend
@@ -128,7 +128,7 @@ function create_and_save_trajectory_plots(filepath::String, problem_name::Symbol
         exit(1)
         fig = Figure(size = (800, 600))
         ax  = Axis(fig[1, 1];
-                   title  = "Trajectories – $(problem_name) (DFPM)",
+                   title  = "Trajectories – $(problem_name) (PDFPM)",
                    xlabel = "F₁(x)",
                    ylabel = "F₂(x)",
                    titlesize = 25,

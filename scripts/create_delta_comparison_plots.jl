@@ -1,12 +1,12 @@
 using DrWatson
-@quickactivate "AAS2025-DFreeMO"
+@quickactivate "AAS2025-PDFreeMO"
 using JLD2
 using CairoMakie  # Usando apenas CairoMakie para formatos vetoriais
 using MOProblems
 
 # Incluir o módulo para ter acesso às funções de análise
-include(srcdir("AAS2025DFreeMO.jl"))
-using .AAS2025DFreeMO
+include(srcdir("AAS2025PDFreeMO.jl"))
+using .AAS2025PDFreeMO
 
 # ========================================================================================
 # CONFIGURAÇÃO
@@ -57,11 +57,11 @@ function save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS
     return saved
 end
 
-# Função list_jld2_files agora importada do módulo AAS2025DFreeMO
+# Função list_jld2_files agora importada do módulo AAS2025PDFreeMO
 
-# Função extract_problem_data agora importada do módulo AAS2025DFreeMO
+# Função extract_problem_data agora importada do módulo AAS2025PDFreeMO
 
-# Funções is_biobjective_problem e list_biobjective_problems agora importadas do módulo AAS2025DFreeMO
+# Funções is_biobjective_problem e list_biobjective_problems agora importadas do módulo AAS2025PDFreeMO
 
 """
 Cria e salva o plot comparativo de deltas para um problema e um solver específicos.
@@ -70,7 +70,7 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
     println("\n=== Criando plot para: problema=$problem_name, solver=$solver_name ===")
     
     # Extrair dados do arquivo usando a função do módulo
-    deltas, final_points_dict = AAS2025DFreeMO.extract_problem_data(filepath, problem_name, solver_name)
+    deltas, final_points_dict = AAS2025PDFreeMO.extract_problem_data(filepath, problem_name, solver_name)
     
     # Verificar se temos dados
     if isempty(deltas)
@@ -155,7 +155,7 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
         # Criar o gráfico com CairoMakie
         fig = Figure(size=(800, 600))
         ax = Axis(fig[1, 1], 
-                 title="Delta Comparison - $(problem_name) (DFPM)",
+                 title="Delta Comparison - $(problem_name) (PDFPM)",
                  xlabel="F₁(x)",
                  ylabel="F₂(x)",
                  titlesize = 25,
@@ -202,7 +202,7 @@ function create_all_delta_comparison_plots(filepath::String)
     println("Formatos de saída: $(join(string.(OUTPUT_FORMATS), ", "))")
     
     # Listar problemas biobjetivos disponíveis
-    biobjective_problems = AAS2025DFreeMO.list_biobjective_problems(filepath)
+    biobjective_problems = AAS2025PDFreeMO.list_biobjective_problems(filepath)
     
     if isempty(biobjective_problems)
         println("Nenhum problema biobjetivo encontrado para análise.")
@@ -218,7 +218,7 @@ function create_all_delta_comparison_plots(filepath::String)
         println("\n--- Processando problema: $problem ---")
         
         # Listar solvers para o problema selecionado
-        available_solvers = AAS2025DFreeMO.list_solvers_for_problem(filepath, problem)
+        available_solvers = AAS2025PDFreeMO.list_solvers_for_problem(filepath, problem)
         
         if isempty(available_solvers)
             println("Nenhum solver encontrado para o problema '$problem'.")
@@ -250,7 +250,7 @@ end
 
 function main()
     println("=== Gerador de Plots Comparativos de Deltas ===")
-    println("Usando dados JLD2 do repositório AAS2025-DFreeMO")
+    println("Usando dados JLD2 do repositório AAS2025-PDFreeMO")
     println("Formatos de saída: $(join(string.(OUTPUT_FORMATS), ", "))")
     
     # Listar arquivos disponíveis
@@ -285,7 +285,7 @@ function main()
     filepath = datadir("sims", selected_file)
     
     # Listar problemas biobjetivos disponíveis
-    biobjective_problems = AAS2025DFreeMO.list_biobjective_problems(filepath)
+    biobjective_problems = AAS2025PDFreeMO.list_biobjective_problems(filepath)
     
     if isempty(biobjective_problems)
         println("Nenhum problema biobjetivo encontrado para análise.")
@@ -320,7 +320,7 @@ function main()
     end
     
     # Listar solvers para o problema selecionado
-    available_solvers = AAS2025DFreeMO.list_solvers_for_problem(filepath, selected_problem)
+    available_solvers = AAS2025PDFreeMO.list_solvers_for_problem(filepath, selected_problem)
     
     if isempty(available_solvers)
         println("Nenhum solver encontrado para o problema '$selected_problem'.")

@@ -1,5 +1,5 @@
 using DrWatson
-@quickactivate "AAS2025-DFreeMO"
+@quickactivate "AAS2025-PDFreeMO"
 using JLD2
 using BenchmarkProfiles
 using CairoMakie  # Usando apenas CairoMakie para formatos vetoriais
@@ -7,8 +7,8 @@ using Statistics
 using Printf
 
 # Incluir o módulo para ter acesso aos tipos e funções de análise
-include(srcdir("AAS2025DFreeMO.jl"))
-using .AAS2025DFreeMO
+include(srcdir("AAS2025PDFreeMO.jl"))
+using .AAS2025PDFreeMO
 
 # ========================================================================================
 # CONFIGURAÇÃO
