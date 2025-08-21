@@ -139,7 +139,7 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
     for delta in deltas
         if isempty(final_points_dict[delta])
             println("Aviso: Nenhum ponto encontrado para delta = $delta. Ignorando este delta.")
-        else
+        elseif delta != 0.0
             push!(valid_deltas, delta)
         end
     end
@@ -155,9 +155,12 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
         # Criar o gráfico com CairoMakie
         fig = Figure(size=(800, 600))
         ax = Axis(fig[1, 1], 
-                 title="Delta Comparison - $(problem_name) ($(solver_name))",
+                 title="Delta Comparison - $(problem_name) (DFPM)",
                  xlabel="F₁(x)",
-                 ylabel="F₂(x)")
+                 ylabel="F₂(x)",
+                 titlesize = 25,
+                 xlabelsize = 25,
+                 ylabelsize = 25)
         
         # Cores distintas para cada delta
         colors = cgrad(:viridis, length(valid_deltas), categorical=true)

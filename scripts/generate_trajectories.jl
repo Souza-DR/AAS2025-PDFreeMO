@@ -124,11 +124,16 @@ function create_and_save_trajectory_plots(filepath::String, problem_name::Symbol
 
     for delta in deltas
         trajectories = traj_dict[delta]
+        println("Number of trajectories[$(delta)]: $(length(trajectories))")
+        exit(1)
         fig = Figure(size = (800, 600))
         ax  = Axis(fig[1, 1];
-                   title  = "Trajectories – $(problem_name) ($(solver_name), δ = $(delta))",
+                   title  = "Trajectories – $(problem_name) (DFPM)",
                    xlabel = "F₁(x)",
-                   ylabel = "F₂(x)")
+                   ylabel = "F₂(x)",
+                   titlesize = 25,
+                   xlabelsize = 25,
+                   ylabelsize = 25)
 
         for (f_init, f_final) in trajectories
             scatter!(ax, [f_init[1]],  [f_init[2]];  markersize = 6, color = :gray)
