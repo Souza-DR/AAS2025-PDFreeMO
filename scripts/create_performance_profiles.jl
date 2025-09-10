@@ -15,7 +15,7 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
-const SOLVER_NAMES = ["DFreeMO", "ProxGrad", "CondG"]
+const SOLVER_NAMES = ["PDFPM", "ProxGrad", "CondG"]
 
 # Métricas disponíveis para análise
 const METRICS = Dict(
@@ -70,7 +70,7 @@ function save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS
     return saved
 end
 
-# Função list_jld2_files agora importada do módulo AAS2025DFreeMO
+# Função list_jld2_files agora importada do módulo AAS2025PDFreeMO
 
 """
 Extrai dados de performance de um arquivo JLD2 para criar a matriz de performance
@@ -86,7 +86,7 @@ function extract_performance_data(filepath::String, metric::String)
     end
     
     # Usar a função do módulo para extrair dados
-    return AAS2025DFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES)
+    return AAS2025PDFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES)
 end
 
 """
@@ -284,7 +284,7 @@ end
 
 function main()
     println("=== Gerador de Performance Profiles ===")
-    println("Usando dados JLD2 do repositório AAS2025-DFreeMO")
+    println("Usando dados JLD2 do repositório AAS2025-PDFreeMO")
     println("Formatos de saída: $(join(string.(OUTPUT_FORMATS), ", "))")
     
     # Listar arquivos disponíveis

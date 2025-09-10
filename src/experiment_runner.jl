@@ -133,7 +133,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
     solver_function = getfield(MOSolvers, config.solver_name)
 
     try        
-        if config.solver_name == :DFreeMO
+        if config.solver_name == :PDFPM
             # Executar o solver usando as matrizes pré-computadas
             result = solver_function(x -> safe_evalf_solver(problem_instance, x),
                                      config.data_matrices,

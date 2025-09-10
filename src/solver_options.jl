@@ -37,7 +37,7 @@ struct SolverSpecificOptions{T<:Real}
     # ProxGrad específicos
     mu::Union{T, Nothing}
     
-    # DFreeMO específicos  
+    # PDFPM específicos  
     epsilon::Union{T, Nothing}
     sigma::Union{T, Nothing}
     alpha::Union{T, Nothing}
@@ -97,9 +97,9 @@ function to_proxgrad_options(config::SolverConfiguration{T}) where T
 end
 
 """
-Converte configuração padronizada para DFreeMO_options
+Converte configuração padronizada para PDFPM_options
 """
-function to_dfreemo_options(config::SolverConfiguration{T}) where T
+function to_pdfpm_options(config::SolverConfiguration{T}) where T
     common = config.common_options
     specific = config.specific_options
     
@@ -109,7 +109,7 @@ function to_dfreemo_options(config::SolverConfiguration{T}) where T
     alpha_val = isnothing(specific.alpha) ? T(0.1) : specific.alpha
     max_subproblem_iter_val = isnothing(specific.max_subproblem_iter) ? 50 : specific.max_subproblem_iter
     
-    return DFreeMO_options(
+    return PDFPM_options(
         verbose = common.verbose,
         max_iter = common.max_iter,
         opt_tol = common.opt_tol,
@@ -147,17 +147,17 @@ end
     get_solver_options(solver_name::Symbol, config::SolverConfiguration{T}) where T
 
 Converte um `SolverConfiguration` genérico para a `struct` de opções específica 
-do solver (`DFreeMO_options`, `ProxGrad_options`, etc.) exigida pelo pacote `MOSolvers.jl`.
+do solver (`PDFPM_options`, `ProxGrad_options`, etc.) exigida pelo pacote `MOSolvers.jl`.
 
 Atua como um dispatcher, chamando a função de conversão apropriada com base no 
 `solver_name`.
 
 # Arguments
-- `solver_name::Symbol`: O nome do solver (e.g., `:DFreeMO`).
+- `solver_name::Symbol`: O nome do solver (e.g., `:PDFPM`).
 - `config::SolverConfiguration{T}`: A configuração padronizada do solver.
 
 # Returns
-- Uma `struct` de opções específica do `MOSolvers.jl` (e.g., `DFreeMO_options`).
+- Uma `struct` de opções específica do `MOSolvers.jl` (e.g., `PDFPM_options`).
 
 # Throws
 - `error`: Se o `solver_name` não for reconhecido.
@@ -165,8 +165,8 @@ Atua como um dispatcher, chamando a função de conversão apropriada com base n
 function get_solver_options(solver_name::Symbol, config::SolverConfiguration{T}) where T
     if solver_name == :ProxGrad
         return to_proxgrad_options(config)
-    elseif solver_name == :DFreeMO
-        return to_dfreemo_options(config)
+    elseif solver_name == :PDFPM
+        return to_pdfpm_options(config)
     elseif solver_name == :CondG
         return to_condg_options(config)
     else

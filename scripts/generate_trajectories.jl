@@ -12,8 +12,8 @@ using CairoMakie      # Vector-graphics backend
 using MOProblems
 
 # Load the local module to reuse utility helpers
-include(srcdir("AAS2025DFreeMO.jl"))
-using .AAS2025DFreeMO
+include(srcdir("AAS2025PDFreeMO.jl"))
+using .AAS2025PDFreeMO
 
 const OUTPUT_FORMATS = [:svg, :eps]
 
@@ -90,7 +90,7 @@ function extract_trajectory_data(filepath::String, problem_name::Symbol, solver_
                     continue   # Ignore failed runs
                 end
                 # Evaluate objective at the initial point
-                eval_res = AAS2025DFreeMO.safe_evalf(problem, result.initial_point)
+                eval_res = AAS2025PDFreeMO.safe_evalf(problem, result.initial_point)
                 if !eval_res.success
                     continue
                 end
@@ -125,7 +125,6 @@ function create_and_save_trajectory_plots(filepath::String, problem_name::Symbol
     for delta in deltas
         trajectories = traj_dict[delta]
         println("Number of trajectories[$(delta)]: $(length(trajectories))")
-        exit(1)
         fig = Figure(size = (800, 600))
         ax  = Axis(fig[1, 1];
                    title  = "Trajectories – $(problem_name) (PDFPM)",
@@ -160,7 +159,7 @@ Generate trajectories for every bi-objective problem and every solver contained 
 """
 function create_all_trajectory_plots(filepath::String)
     println("\n=== Generating all trajectory plots ===")
-    problems = AAS2025DFreeMO.list_biobjective_problems(filepath)
+    problems = AAS2025PDFreeMO.list_biobjective_problems(filepath)
     if isempty(problems)
         println("No bi-objective problems found – aborting.")
         return Dict()
@@ -168,7 +167,7 @@ function create_all_trajectory_plots(filepath::String)
 
     all_results = Dict{Symbol, Dict{String, Any}}()
     for problem in problems
-        solvers = AAS2025DFreeMO.list_solvers_for_problem(filepath, problem)
+        solvers = AAS2025PDFreeMO.list_solvers_for_problem(filepath, problem)
         if isempty(solvers)
             println("No solvers found for problem $(problem)")
             continue

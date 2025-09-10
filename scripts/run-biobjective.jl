@@ -24,7 +24,7 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
 
 # Configurar parâmetros ESPECÍFICOS por solver (opcional)
 const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
-    :DFreeMO => SolverSpecificOptions(
+    :PDFPM => SolverSpecificOptions(
         max_subproblem_iter = 50,   # Reduzir iterações do subproblema para benchmark
         # epsilon, sigma, alpha usarão valores padrão
     ),
@@ -35,16 +35,17 @@ const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
 )
 
 # Outras configurações do benchmark
-const SOLVERS = [:DFreeMO, :ProxGrad, :CondG] # Usar símbolos para os solvers
+# const SOLVERS = [:PDFPM, :ProxGrad, :CondG] # Usar símbolos para os solvers
+const SOLVERS = [:PDFPM]
 # const SOLVERS = [:CondG] # Usar símbolos para os solvers
 const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]
 # const DELTAS = [0.02]
 # Usar símbolos para os nomes dos problemas
-BI_list = [Symbol(p) for p in MOProblems.filter_problems(min_objs=2, max_objs=2)]
-const PROBLEMS = BI_list
+# BI_list = [Symbol(p) for p in MOProblems.filter_problems(min_objs=2, max_objs=2)]
+# const PROBLEMS = BI_list
 # const PROBLEMS = [BI_list[2]]  # Criar uma lista com 1 elemento
-# const PROBLEMS = ["AP2"]
+const PROBLEMS = ["AAS1", "AAS2"]
 
 println("Problemas selecionados: $PROBLEMS")
 
@@ -57,7 +58,7 @@ function main()
     println("Opções comuns: max_iter=$(COMMON_SOLVER_OPTIONS.max_iter), opt_tol=$(COMMON_SOLVER_OPTIONS.opt_tol)")
     
     # Gerar configurações de experimentos com as novas opções padronizadas
-    configs = AAS2025DFreeMO.generate_experiment_configs(
+    configs = AAS2025PDFreeMO.generate_experiment_configs(
         PROBLEMS, 
         SOLVERS, 
         NRUN, 
@@ -68,7 +69,7 @@ function main()
     println("Total de experimentos: $(length(configs))")
 
     # Executar com salvamento em lote para evitar perda de dados
-    results = AAS2025DFreeMO.run_experiment_with_batch_saving(
+    results = AAS2025PDFreeMO.run_experiment_with_batch_saving(
         configs,
         batch_size=50,
         filename_base="benchmark_live_biobjective"
