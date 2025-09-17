@@ -35,19 +35,25 @@ const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
 )
 
 # Outras configurações do benchmark
-# const SOLVERS = [:PDFPM, :ProxGrad, :CondG] # Usar símbolos para os solvers
-const SOLVERS = [:PDFPM]
+const SOLVERS = [:PDFPM, :ProxGrad, :CondG] # Usar símbolos para os solvers
+# const SOLVERS = [:PDFPM]
 # const SOLVERS = [:CondG] # Usar símbolos para os solvers
 const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]
 # const DELTAS = [0.02]
 # Usar símbolos para os nomes dos problemas
 # BI_list = [Symbol(p) for p in MOProblems.filter_problems(min_objs=2, max_objs=2)]
+all_list = [Symbol(p) for p in sort(MOProblems.get_problem_names())]
+const PROBLEMS = all_list
 # const PROBLEMS = BI_list
 # const PROBLEMS = [BI_list[2]]  # Criar uma lista com 1 elemento
-const PROBLEMS = ["AAS1", "AAS2"]
+# const PROBLEMS = ["AAS1", "AAS2"]
+# const PROBLEMS = ["Lov1"]
 
 println("Problemas selecionados: $PROBLEMS")
+println(length(PROBLEMS))
+
+# exit(1)
 
 
 function main()

@@ -139,7 +139,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                                      config.data_matrices,
                                      config.delta,
                                      config.initial_point,
-                                     options;
+                                     options; evalJf = x -> safe_evalJf_solver(problem_instance, x),
                                      lb = l, ub = u)
         elseif config.solver_name == :ProxGrad || config.solver_name == :CondG
             # Executar o solver usando as matrizes pré-computadas
