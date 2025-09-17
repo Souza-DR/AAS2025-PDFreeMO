@@ -21,8 +21,7 @@ module AAS2025PDFreeMO
     # Funções de análise de dados
     export list_jld2_files, get_file_metadata
     export is_biobjective_problem, list_biobjective_problems, filter_solvers
-    export extract_performance_data, extract_problem_data
-    export get_successful_results_count
+    export extract_performance_data
     export list_solvers_for_problem
     
     # Funções de plotagem
