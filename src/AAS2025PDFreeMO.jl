@@ -25,7 +25,6 @@ module AAS2025PDFreeMO
     export list_solvers_for_problem
     
     # Funções de plotagem
-    export create_single_delta_plot
     export extract_objective_space_data
 
 end # module AAS2025PDFreeMO 
