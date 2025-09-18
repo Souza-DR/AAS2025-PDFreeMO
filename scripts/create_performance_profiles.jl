@@ -70,31 +70,13 @@ function save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS
     return saved
 end
 
-# Função list_jld2_files agora importada do módulo AAS2025PDFreeMO
-
-"""
-Extrai dados de performance de um arquivo JLD2 para criar a matriz de performance
-"""
-function extract_performance_data(filepath::String, metric::String)
-    println("\nExtraindo dados de performance do arquivo: $(basename(filepath))")
-    println("Métrica: $(METRICS[metric])")
-    
-    # Verificar se a métrica é válida
-    if !haskey(METRICS, metric)
-        println("Métrica inválida. Use uma das seguintes: $(keys(METRICS))")
-        return nothing, nothing
-    end
-    
-    # Usar a função do módulo para extrair dados
-    return AAS2025PDFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES)
-end
-
 """
 Cria e salva o performance profile usando CairoMakie
 """
 function create_performance_profile(filepath::String, metric::String)
     # Extrair todos os dados de uma vez
-    perf_matrix, instance_info = extract_performance_data(filepath, metric)
+    # perf_matrix, instance_info = extract_performance_data(filepath, metric)
+    perf_matrix, instance_info = AAS2025PDFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES)
     
     if perf_matrix === nothing || isempty(perf_matrix)
         println("Não foi possível extrair dados de performance.")
