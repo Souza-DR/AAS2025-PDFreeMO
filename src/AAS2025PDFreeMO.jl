@@ -26,6 +26,6 @@ module AAS2025PDFreeMO
     
     # Funções de plotagem
     export create_delta_comparison_plot, create_single_delta_plot, save_single_delta_plot
-    export extract_objective_space_data, plot_trajectories
+    export extract_objective_space_data
 
 end # module AAS2025PDFreeMO 
