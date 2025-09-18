@@ -206,6 +206,7 @@ function run_experiment_with_batch_saving(
             result = run_single_experiment(config)
             push!(all_results, result)
         end
+        _save_results_to_jld2(datadir("sims", "$(filename_base).jld2"), all_results)
         return all_results
     end
 
