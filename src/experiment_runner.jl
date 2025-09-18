@@ -210,8 +210,7 @@ function run_experiment_with_batch_saving(
     end
 
     current_batch = ExperimentResult{T}[]
-    timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
-    final_filepath = datadir("sims", "$(filename_base)_$(timestamp).jld2")
+    final_filepath = datadir("sims", "$(filename_base).jld2")
     
     println("Salvamento em lote ativado. Resultados intermediários serão salvos em: $final_filepath")
     mkpath(datadir("sims"))

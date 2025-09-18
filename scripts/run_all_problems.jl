@@ -73,12 +73,13 @@ function main()
         solver_specific_options = SOLVER_SPECIFIC_OPTIONS
     )
     println("Total de experimentos: $(length(configs))")
-
+    timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
+    
     # Executar com salvamento em lote para evitar perda de dados
     results = AAS2025PDFreeMO.run_experiment_with_batch_saving(
         configs,
         batch_size=50,
-        filename_base="benchmark_live_biobjective"
+        filename_base="benchmark_live_biobjective_$(timestamp)"
     )
     
     println("\nBenchmark concluído! Resultados salvos em: $(datadir("sims"))")
