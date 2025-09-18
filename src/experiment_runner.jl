@@ -168,6 +168,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                 result.n_f_evals,
                 result.n_Jf_evals,
                 result.total_time,
+                copy(result.F_init),
                 copy(result.Fval)
             )
             return res
@@ -263,6 +264,7 @@ function create_failed_result(config::ExperimentConfig{T}, nobj::Int) where T
         0,
         0,
         0.0,
+        fill(T(NaN), nobj),
         fill(T(NaN), nobj)
     )
 end

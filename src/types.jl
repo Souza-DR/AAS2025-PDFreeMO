@@ -15,6 +15,7 @@ de um solver em um problema de otimização.
 - `n_f_evals::Int`: Número total de avaliações da função objetivo.
 - `n_Jf_evals::Int`: Número total de avaliações do Jacobiano (gradientes).
 - `total_time::Float64`: Tempo de execução em segundos.
+- `F_init::Vector{T}`: Vetor com o valor inicial da função objetivo.
 - `final_objective_value::Vector{T}`: Vetor com o valor final da função objetivo.
 
 """
@@ -32,6 +33,7 @@ struct ExperimentResult{T<:Real}
     n_f_evals::Int
     n_Jf_evals::Int
     total_time::Float64
+    F_init ::Vector{T}
     final_objective_value::Vector{T}
 end
 
