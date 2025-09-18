@@ -5,6 +5,7 @@ using BenchmarkProfiles
 using CairoMakie  # Usando apenas CairoMakie para formatos vetoriais
 using Statistics
 using Printf
+using Plots
 
 # Incluir o módulo para ter acesso aos tipos e funções de análise
 include(srcdir("AAS2025PDFreeMO.jl"))
@@ -146,6 +147,16 @@ function create_performance_profile(filepath::String, metric::String)
         # Preparar nome do arquivo
         filename_base = replace(basename(filepath), ".jld2" => "")
         output_name = "perf_profile_$(metric)_$(filename_base)"
+
+        title_text = "Performance Profile - $(METRICS[metric]) (δ = $delta)"
+    
+        # Criar o gráfico
+        p = performance_profile(PlotsBackend(), perf_matrix_filtered, SOLVER_NAMES, title=title_text)
+        
+        # Salvar o gráfico
+        output_file = joinpath(RESULTS_DIR, "perf_profile_$(metric)_$(timestamp).png")
+        savefig(p, output_file)
+        println("Performance profile salvo em: $output_file")
         
         # Criar e salvar com CairoMakie
         try

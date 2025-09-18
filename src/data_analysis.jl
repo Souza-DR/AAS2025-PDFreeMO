@@ -264,8 +264,8 @@ function extract_performance_data(filepath::String, metric::String, target_solve
                 if path_exists
                     result = file[solver][problem][delta_key][run_key]
                     
-                    if result.success && hasfield(typeof(result), Symbol(metric))
-                        perf_matrix[instance_idx, solver_idx] = getfield(result, Symbol(metric))
+                    if result.success && hasproperty(result, Symbol(metric))
+                        perf_matrix[instance_idx, solver_idx] = getproperty(result, Symbol(metric))
                     end
                 end
             end
