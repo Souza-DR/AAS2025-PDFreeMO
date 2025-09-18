@@ -89,12 +89,7 @@ function extract_trajectory_data(filepath::String, problem_name::Symbol, solver_
                 if !result.success
                     continue   # Ignore failed runs
                 end
-                # Evaluate objective at the initial point
-                eval_res = AAS2025PDFreeMO.safe_evalf(problem, result.initial_point)
-                if !eval_res.success
-                    continue
-                end
-                push!(traj_list, (eval_res.value, result.final_objective_value))
+                push!(traj_list, (result.F_init, result.final_objective_value))
             end
 
             if !isempty(traj_list)
@@ -127,7 +122,7 @@ function create_and_save_trajectory_plots(filepath::String, problem_name::Symbol
         println("Number of trajectories[$(delta)]: $(length(trajectories))")
         fig = Figure(size = (800, 600))
         ax  = Axis(fig[1, 1];
-                   title  = "Trajectories – $(problem_name) (PDFPM)",
+                   title  = "Trajectories – $(problem_name) $(solver_name)",
                    xlabel = "F₁(x)",
                    ylabel = "F₂(x)",
                    titlesize = 25,
