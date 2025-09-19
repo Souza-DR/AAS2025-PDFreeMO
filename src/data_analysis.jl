@@ -218,18 +218,18 @@ function extract_performance_data(filepath::String, metric::String, target_solve
         # Descobrir todas as instâncias únicas (problema, delta, run_id)
         instance_info = Set{Tuple{String, Float64, Int}}()
         for solver in solvers_to_analyze
-            if !haskey(file, solver); continue; end
+            # if !haskey(file, solver); continue; end
             solver_group = file[solver]
             for problem in keys(solver_group)
                 problem_group = solver_group[problem]
                 for delta_key in keys(problem_group)
-                    if !startswith(delta_key, "delta_"); continue; end
+                    # if !startswith(delta_key, "delta_"); continue; end
                     delta_str = replace(delta_key, "delta_" => "")
                     delta_val = parse(Float64, replace(delta_str, "-" => "."))
                     
                     delta_group = problem_group[delta_key]
                     for run_key in keys(delta_group)
-                        if !startswith(run_key, "run_"); continue; end
+                        # if !startswith(run_key, "run_"); continue; end
                         run_id = parse(Int, replace(run_key, "run_" => ""))
                         push!(instance_info, (problem, delta_val, run_id))
                     end
