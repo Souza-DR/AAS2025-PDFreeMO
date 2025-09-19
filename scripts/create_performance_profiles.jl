@@ -6,6 +6,7 @@ using CairoMakie  # Usando apenas CairoMakie para formatos vetoriais
 using Statistics
 using Printf
 using Plots
+using PlotThemes
 
 # Incluir o módulo para ter acesso aos tipos e funções de análise
 include(srcdir("AAS2025PDFreeMO.jl"))
@@ -16,14 +17,14 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
-const SOLVER_NAMES = ["PDFPM", "ProxGrad", "CondG"]
+const SOLVER_NAMES = ["PDFPM", "CondG"]
 
 # Métricas disponíveis para análise
 const METRICS = Dict(
-    "iter" => "Número de iterações",
-    "n_f_evals" => "Avaliações de função", 
-    "n_Jf_evals" => "Avaliações de gradiente",
-    "total_time" => "Tempo de execução (s)"
+    "iter" => "Number of iterations",
+    "n_f_evals" => "Number of function evaluations",
+    "n_Jf_evals" => "Number of gradient evaluations",
+    "total_time" => "Execution time (s)"
 )
 
 # Formatos de saída para os gráficos (apenas vetoriais)
@@ -84,6 +85,39 @@ function create_performance_profile(filepath::String, metric::String)
         return Dict{Float64, Dict{Symbol, String}}()
     end
 
+    # Criar um PP para todos os deltas simnultaneamente
+    # Preparar nome do arquivo
+    output_name = "perf_profile_$(metric)"
+    title_text = "Performance Profile - $(METRICS[metric])"
+
+    # Criar o gráfico
+    default(
+            fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
+            guidefontsize = 14,
+            tickfontsize  = 12,
+            legendfontsize= 12,
+        )
+    p = performance_profile(
+            PlotsBackend(),
+            perf_matrix, SOLVER_NAMES;
+            title     = title_text,
+            xlabel    = "τ",
+            ylabel    = "ρ(τ)",
+            lw        = 3,
+            palette   = :viridis,
+            linestyles= [:solid :dash :dot :dashdot],
+            legend    = :outertopright,
+            grid      = :none,
+            framestyle= :box,
+            size      = (1200, 800),
+            sampletol = 1e-4
+        )
+
+    # Salvar o gráfico
+    output_file = joinpath("data/plots/bench", "$(output_name).svg")
+    saved_files = savefig(p, output_file)
+    # all_saved_files[delta] = saved_files
+    println("Performance profile salvo em: $output_file")
     # Encontrar deltas únicos a partir das informações das instâncias
     unique_deltas = unique([info[2] for info in instance_info])
     println("\nDeltas encontrados: $unique_deltas. Gerando um perfil para cada um.")
@@ -151,101 +185,122 @@ function create_performance_profile(filepath::String, metric::String)
         title_text = "Performance Profile - $(METRICS[metric]) (δ = $delta)"
     
         # Criar o gráfico
-        p = performance_profile(PlotsBackend(), perf_matrix_filtered, SOLVER_NAMES, title=title_text)
+        default(
+                fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
+                guidefontsize = 14,
+                tickfontsize  = 12,
+                legendfontsize= 12,
+            )
+        p = performance_profile(
+                PlotsBackend(),
+                perf_matrix_filtered, SOLVER_NAMES;
+                title     = title_text,
+                xlabel    = "τ",
+                ylabel    = "ρ(τ)",
+                lw        = 3,
+                palette   = :viridis,
+                linestyles= [:solid :dash :dot :dashdot],
+                legend    = :outertopright,
+                grid      = :none,
+                framestyle= :box,
+                size      = (1200, 800),
+                sampletol = 1e-4
+            )
         
         # Salvar o gráfico
-        output_file = joinpath(RESULTS_DIR, "perf_profile_$(metric)_$(timestamp).png")
-        savefig(p, output_file)
+        output_file = joinpath("$(base_dir)", "$(output_name).svg")
+        saved_files = savefig(p, output_file)
+        # all_saved_files[delta] = saved_files
         println("Performance profile salvo em: $output_file")
         
-        # Criar e salvar com CairoMakie
-        try
-            # Criar o gráfico com CairoMakie
-            fig = Figure(size=(800, 600))
-            ax = Axis(fig[1, 1], 
-                     title="Performance Profile - $(METRICS[metric]) (δ = $(replace(string(delta), ".0" => "")))",
-                     xlabel="Performance Ratio",
-                     ylabel="Fraction of Problems")
+        # # Criar e salvar com CairoMakie
+        # try
+        #     # Criar o gráfico com CairoMakie
+        #     fig = Figure(size=(800, 600))
+        #     ax = Axis(fig[1, 1], 
+        #              title="Performance Profile - $(METRICS[metric]) (δ = $(replace(string(delta), ".0" => "")))",
+        #              xlabel="Performance Ratio",
+        #              ylabel="Fraction of Problems")
             
-            # Calcular os dados do perfil de desempenho
-            T = perf_matrix_filtered
-            r = zeros(size(T))
+        #     # Calcular os dados do perfil de desempenho
+        #     T = perf_matrix_filtered
+        #     r = zeros(size(T))
             
-            # Verificar se temos pelo menos uma linha válida
-            valid_rows = false
+        #     # Verificar se temos pelo menos uma linha válida
+        #     valid_rows = false
             
-            # Para cada problema (linha)
-            for p = 1:size(T, 1)
-                # Verificar se temos valores válidos para este problema
-                row_values = filter(!isnan, T[p, :])
-                if isempty(row_values)
-                    # Pular problemas sem valores válidos
-                    continue
-                end
+        #     # Para cada problema (linha)
+        #     for p = 1:size(T, 1)
+        #         # Verificar se temos valores válidos para este problema
+        #         row_values = filter(!isnan, T[p, :])
+        #         if isempty(row_values)
+        #             # Pular problemas sem valores válidos
+        #             continue
+        #         end
                 
-                valid_rows = true
+        #         valid_rows = true
                 
-                # Encontrar o melhor desempenho para este problema
-                minval = minimum(row_values)
+        #         # Encontrar o melhor desempenho para este problema
+        #         minval = minimum(row_values)
                 
-                # Calcular a razão de desempenho
-                for s = 1:size(T, 2)
-                    if !isnan(T[p, s])
-                        r[p, s] = T[p, s] / minval
-                    else
-                        r[p, s] = NaN
-                    end
-                end
-            end
+        #         # Calcular a razão de desempenho
+        #         for s = 1:size(T, 2)
+        #             if !isnan(T[p, s])
+        #                 r[p, s] = T[p, s] / minval
+        #             else
+        #                 r[p, s] = NaN
+        #             end
+        #         end
+        #     end
             
-            # Se não temos linhas válidas, pular este delta
-            if !valid_rows
-                println("Nenhuma linha com dados válidos encontrada para delta = $delta.")
-                continue
-            end
+        #     # Se não temos linhas válidas, pular este delta
+        #     if !valid_rows
+        #         println("Nenhuma linha com dados válidos encontrada para delta = $delta.")
+        #         continue
+        #     end
             
-            # Criar os dados para o gráfico
-            max_ratio = 5.0  # Limitar para melhor visualização
-            ratios = range(1.0, max_ratio, length=100)
+        #     # Criar os dados para o gráfico
+        #     max_ratio = 5.0  # Limitar para melhor visualização
+        #     ratios = range(1.0, max_ratio, length=100)
             
-            # Para cada solver, plotar sua curva
-            for s = 1:size(r, 2)
-                solver_name = solvers_with_data[s]
+        #     # Para cada solver, plotar sua curva
+        #     for s = 1:size(r, 2)
+        #         solver_name = solvers_with_data[s]
                 
-                # Calcular a fração de problemas resolvidos dentro de cada razão
-                fractions = Float64[]
-                for τ in ratios
-                    # Contar problemas resolvidos com razão <= τ
-                    count = 0
-                    total = 0
-                    for p = 1:size(r, 1)
-                        if !isnan(r[p, s])
-                            total += 1
-                            if r[p, s] <= τ
-                                count += 1
-                            end
-                        end
-                    end
-                    # Evitar divisão por zero
-                    push!(fractions, total > 0 ? count / total : 0.0)
-                end
+        #         # Calcular a fração de problemas resolvidos dentro de cada razão
+        #         fractions = Float64[]
+        #         for τ in ratios
+        #             # Contar problemas resolvidos com razão <= τ
+        #             count = 0
+        #             total = 0
+        #             for p = 1:size(r, 1)
+        #                 if !isnan(r[p, s])
+        #                     total += 1
+        #                     if r[p, s] <= τ
+        #                         count += 1
+        #                     end
+        #                 end
+        #             end
+        #             # Evitar divisão por zero
+        #             push!(fractions, total > 0 ? count / total : 0.0)
+        #         end
                 
-                # Plotar a curva
-                lines!(ax, ratios, fractions, 
-                      label=solver_name, 
-                      linewidth=2)
-            end
+        #         # Plotar a curva
+        #         lines!(ax, ratios, fractions, 
+        #               label=solver_name, 
+        #               linewidth=2)
+        #     end
             
-            # Adicionar legenda
-            axislegend(ax)  # Usar o eixo explicitamente e sem posição personalizada
+        #     # Adicionar legenda
+        #     axislegend(ax)  # Usar o eixo explicitamente e sem posição personalizada
             
-            # Salvar em formatos vetoriais
-            saved_files = save_figure(fig, output_name, base_dir)
-            all_saved_files[delta] = saved_files
+        #     # Salvar em formatos vetoriais
+        #     saved_files = save_figure(fig, output_name, base_dir)
+        #     all_saved_files[delta] = saved_files
             
-        catch e
-            println("✗ Error creating vector formats: $e")
-        end
+        # catch e
+        #     println("✗ Error creating vector formats: $e")
+        # end
     end
     
     return all_saved_files
