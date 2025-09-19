@@ -37,9 +37,9 @@ const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
 
 # Outras configurações do benchmark
 const SOLVERS = [:PDFPM, :ProxGrad, :CondG] # Usar símbolos para os solvers
-const NRUN = 1
+const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]
-all_list = [Symbol(p) for p in sort(MOProblems.get_problem_names())] # Usar símbolos para os nomes dos problemas
+all_list = [Symbol(p) for p in sort(MOProblems.filter_problems(has_jacobian=true))] # Usar símbolos para os nomes dos problemas
 const PROBLEMS = all_list
 println("Problemas selecionados: $PROBLEMS")
 
@@ -78,6 +78,11 @@ function main()
         mkpath(joinpath(datadir("sims"), "problems"))
         mv(joinpath(datadir("sims"), "$problem.jld2"),
         joinpath(datadir("sims"), "problems", "$problem.jld2"); force=true)
+
+        # --- limpeza de memória ---
+        configs = nothing
+        results = nothing
+        GC.gc()
 
         println("\nBenchmark concluído! Resultados salvos em: $(datadir("sims"))")
     end
