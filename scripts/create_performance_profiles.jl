@@ -91,12 +91,12 @@ function create_performance_profile(filepath::String, metric::String)
     title_text = "Performance Profile - $(METRICS[metric])"
 
     # Criar o gráfico
-    default(
-            fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
-            guidefontsize = 14,
-            tickfontsize  = 12,
-            legendfontsize= 12,
-        )
+    # default(
+    #         fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
+    #         guidefontsize = 14,
+    #         tickfontsize  = 12,
+    #         legendfontsize= 12,
+    #     )
     p = performance_profile(
             PlotsBackend(),
             perf_matrix, SOLVER_NAMES;
@@ -106,10 +106,10 @@ function create_performance_profile(filepath::String, metric::String)
             lw        = 3,
             palette   = :viridis,
             linestyles= [:solid :dash :dot :dashdot],
-            legend    = :outertopright,
+            legend    = :topright,
             grid      = :none,
             framestyle= :box,
-            size      = (1200, 800),
+            # size      = (1200, 800),
             sampletol = 1e-4
         )
 
@@ -184,13 +184,13 @@ function create_performance_profile(filepath::String, metric::String)
 
         title_text = "Performance Profile - $(METRICS[metric]) (δ = $delta)"
     
-        # Criar o gráfico
-        default(
-                fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
-                guidefontsize = 14,
-                tickfontsize  = 12,
-                legendfontsize= 12,
-            )
+        # # Criar o gráfico
+        # default(
+        #         fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
+        #         guidefontsize = 14,
+        #         tickfontsize  = 12,
+        #         legendfontsize= 12,
+        #     )
         p = performance_profile(
                 PlotsBackend(),
                 perf_matrix_filtered, SOLVER_NAMES;
@@ -200,10 +200,10 @@ function create_performance_profile(filepath::String, metric::String)
                 lw        = 3,
                 palette   = :viridis,
                 linestyles= [:solid :dash :dot :dashdot],
-                legend    = :outertopright,
+                legend    = :topright,
                 grid      = :none,
                 framestyle= :box,
-                size      = (1200, 800),
+                # size      = (1200, 800),
                 sampletol = 1e-4
             )
         
