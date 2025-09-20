@@ -91,7 +91,7 @@ function to_proxgrad_options(config::SolverConfiguration{T}) where T
         max_time = common.max_time,
         print_interval = common.print_interval,
         store_trace = common.store_trace,
-        stop_criteria = common.stop_criteria,
+        stop_criteria = :proxgrad,
         mu = mu_val
     )
 end
@@ -117,7 +117,7 @@ function to_pdfpm_options(config::SolverConfiguration{T}) where T
         max_time = common.max_time,
         print_interval = common.print_interval,
         store_trace = common.store_trace,
-        stop_criteria = common.stop_criteria,
+        stop_criteria = :pdfpm,
         epsilon = epsilon_val,
         sigma = sigma_val,
         alpha = alpha_val,
@@ -139,7 +139,7 @@ function to_condg_options(config::SolverConfiguration{T}) where T
         max_time = common.max_time,
         print_interval = common.print_interval,
         store_trace = common.store_trace,
-        stop_criteria = common.stop_criteria
+        stop_criteria = :condg
     )
 end
 
