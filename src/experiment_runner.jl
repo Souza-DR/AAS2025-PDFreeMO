@@ -276,10 +276,6 @@ function run_experiment(configs::Vector{ExperimentConfig{T}}) where T
     
     for config in configs
         result = run_single_experiment(config)
-        if !result.success
-            println("result.success Linha 139: ", result.success)
-            # exit(1)
-        end
         # Adicionar aos resultados totais
         push!(all_results, result)
     end
