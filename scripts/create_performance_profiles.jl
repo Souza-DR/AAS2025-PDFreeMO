@@ -17,7 +17,7 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
-const SOLVER_NAMES = ["PDFPM", "CondG"]
+const SOLVER_NAMES = ["PDFPM", "ProxGrad"]
 
 # Métricas disponíveis para análise
 const METRICS = Dict(
@@ -85,6 +85,18 @@ function create_performance_profile(filepath::String, metric::String)
         return Dict{Float64, Dict{Symbol, String}}()
     end
 
+    # Filtrar problemas que nao foram resolvidos por nenhum dos solvers
+    valid_rows = []
+    for instance_idx in 1:size(perf_matrix, 1)
+        if !any(isnan, perf_matrix[instance_idx, :])
+            push!(valid_rows, instance_idx)
+        end
+    end
+
+    println("Total de instâncias: $(size(perf_matrix, 1)), Válidas: $(length(valid_rows))")
+    # println(perf_matrix[valid_rows, :])
+    # exit(1)
+
     # Criar um PP para todos os deltas simnultaneamente
     # Preparar nome do arquivo
     output_name = "perf_profile_$(metric)"
@@ -99,14 +111,14 @@ function create_performance_profile(filepath::String, metric::String)
     #     )
     p = performance_profile(
             PlotsBackend(),
-            perf_matrix, SOLVER_NAMES;
+            perf_matrix[valid_rows, :], SOLVER_NAMES;
             title     = title_text,
             xlabel    = "τ",
             ylabel    = "ρ(τ)",
             lw        = 3,
-            palette   = :viridis,
+            palette   = [:red, :blue, :green],
             linestyles= [:solid :dash :dot :dashdot],
-            legend    = :topright,
+            legend    = :bottomright,
             grid      = :none,
             framestyle= :box,
             # size      = (1200, 800),
@@ -114,6 +126,7 @@ function create_performance_profile(filepath::String, metric::String)
         )
 
     # Salvar o gráfico
+    mkpath(joinpath(datadir("plots"), "bench"))
     output_file = joinpath("data/plots/bench", "$(output_name).svg")
     saved_files = savefig(p, output_file)
     # all_saved_files[delta] = saved_files
@@ -208,6 +221,7 @@ function create_performance_profile(filepath::String, metric::String)
             )
         
         # Salvar o gráfico
+        mkpath(base_dir)
         output_file = joinpath("$(base_dir)", "$(output_name).svg")
         saved_files = savefig(p, output_file)
         # all_saved_files[delta] = saved_files
