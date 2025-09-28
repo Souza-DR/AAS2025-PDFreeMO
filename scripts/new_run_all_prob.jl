@@ -20,7 +20,6 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
     max_time = 3600.0,             # Tempo máximo em segundos
     print_interval = 1,           # Intervalo de impressão
     store_trace = false,           # Não armazenar trace para economizar memória
-    stop_criteria = :proxgrad      # Critério de parada padrão
 )
 
 # Configurar parâmetros ESPECÍFICOS por solver (opcional)

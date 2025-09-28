@@ -25,8 +25,7 @@ options = MOSolvers.CondG_options(
     ftol = 1e-4,
     max_time = 3600.0,
     print_interval = 1,
-    store_trace = false,
-    stop_criteria = :condg
+    store_trace = false
 )
 
 result = MOSolvers.CondG(x -> safe_evalf_solver(problem_instance, x),
