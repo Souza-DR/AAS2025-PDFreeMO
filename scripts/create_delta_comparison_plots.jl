@@ -155,7 +155,7 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
         # Criar o gráfico com CairoMakie
         fig = Figure(size=(800, 600))
         ax = Axis(fig[1, 1], 
-                 title="Delta Comparison - $(problem_name) (PDFPM)",
+                 title="Delta Comparison - $(problem_name) ($(solver_name))",
                  xlabel="F₁(x)",
                  ylabel="F₂(x)",
                  titlesize = 25,

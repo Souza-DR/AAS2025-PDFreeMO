@@ -15,7 +15,7 @@ using .AAS2025PDFreeMO
 const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
     verbose = 1,                    # Sem saída detalhada para benchmark
     max_iter = 100,                # Máximo de iterações
-    opt_tol = 1e-6,                # Tolerância de otimalidade
+    opt_tol = 1e-4,                # Tolerância de otimalidade
     ftol = 1e-4,                   # Tolerância da função
     max_time = 3600.0,             # Tempo máximo em segundos
     print_interval = 1,           # Intervalo de impressão
@@ -25,7 +25,7 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
 # Configurar parâmetros ESPECÍFICOS por solver (opcional)
 const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
     :PDFPM => SolverSpecificOptions(
-        max_subproblem_iter = 50,   # Reduzir iterações do subproblema para benchmark
+        max_subproblem_iter = 20, epsilon = 1e-4, sigma = 1.0, # Reduzir iterações do subproblema para benchmark
         # epsilon, sigma, alpha usarão valores padrão
     ),
     :ProxGrad => SolverSpecificOptions(
@@ -36,9 +36,11 @@ const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
 
 # Outras configurações do benchmark
 const SOLVERS = [:PDFPM, :ProxGrad, :CondG] # Usar símbolos para os solvers
+# const SOLVERS = [:PDFPM]
 const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]
-all_list = [Symbol(p) for p in sort(MOProblems.filter_problems(has_jacobian=true))] # Usar símbolos para os nomes dos problemas
+# all_list = [Symbol(p) for p in sort(MOProblems.filter_problems(has_jacobian=true))]
+all_list = [Symbol(p) for p in sort(MOProblems.get_problem_names())]
 const PROBLEMS = all_list
 println("Problemas selecionados: $PROBLEMS")
 

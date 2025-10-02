@@ -89,7 +89,8 @@ function to_proxgrad_options(config::SolverConfiguration{T}) where T
         max_time = common.max_time,
         print_interval = common.print_interval,
         store_trace = common.store_trace,
-        mu = mu_val
+        mu = mu_val,
+        stop_criteria = :NormProgress
     )
 end
 
@@ -101,7 +102,7 @@ function to_pdfpm_options(config::SolverConfiguration{T}) where T
     specific = config.specific_options
     
     # Usar valores específicos se fornecidos, senão usar padrões
-    epsilon_val = isnothing(specific.epsilon) ? T(1e-10) : specific.epsilon
+    epsilon_val = isnothing(specific.epsilon) ? T(1e-4) : specific.epsilon
     sigma_val = isnothing(specific.sigma) ? T(1.0) : specific.sigma
     alpha_val = isnothing(specific.alpha) ? T(0.1) : specific.alpha
     max_subproblem_iter_val = isnothing(specific.max_subproblem_iter) ? 50 : specific.max_subproblem_iter
@@ -117,7 +118,8 @@ function to_pdfpm_options(config::SolverConfiguration{T}) where T
         epsilon = epsilon_val,
         sigma = sigma_val,
         alpha = alpha_val,
-        max_subproblem_iter = max_subproblem_iter_val
+        max_subproblem_iter = max_subproblem_iter_val,
+        stop_criteria = :NormProgress
     )
 end
 
@@ -134,7 +136,8 @@ function to_condg_options(config::SolverConfiguration{T}) where T
         ftol = common.ftol,
         max_time = common.max_time,
         print_interval = common.print_interval,
-        store_trace = common.store_trace
+        store_trace = common.store_trace,
+        stop_criteria = :NormProgress
     )
 end
 
@@ -160,7 +163,7 @@ Atua como um dispatcher, chamando a função de conversão apropriada com base n
 function get_solver_options(solver_name::Symbol, config::SolverConfiguration{T}) where T
     if solver_name == :ProxGrad
         return to_proxgrad_options(config)
-    elseif solver_name == :PDFPM
+    elseif solver_name == :PDFPM || solver_name == :Dfree
         return to_pdfpm_options(config)
     elseif solver_name == :CondG
         return to_condg_options(config)

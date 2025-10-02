@@ -17,7 +17,7 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
-const SOLVER_NAMES = ["PDFPM", "ProxGrad"]
+const SOLVER_NAMES = ["PDFPM", "CondG"]
 
 # Métricas disponíveis para análise
 const METRICS = Dict(
@@ -73,7 +73,7 @@ function save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS
 end
 
 """
-Cria e salva o performance profile usando CairoMakie
+Cria e salva o performance profile
 """
 function create_performance_profile(filepath::String, metric::String)
     # Extrair todos os dados de uma vez
@@ -87,20 +87,12 @@ function create_performance_profile(filepath::String, metric::String)
 
     # Filtrar problemas que nao foram resolvidos por nenhum dos solvers
     valid_rows = []
-    # for instance_idx in 1:size(perf_matrix, 1)
-    #     if !all(isnan, perf_matrix[instance_idx, :]) && !any(x -> x == 0.0, perf_matrix[instance_idx, :])
-    #         push!(valid_rows, instance_idx)
-    #     end
-    # end
-
     # valid_rows = findall(row -> !all(isnan, row) , eachrow(perf_matrix))
     valid_rows = findall(row -> !all(isnan, row) && !any(==(0.0), row), eachrow(perf_matrix))
 
 
     println("Total de instâncias: $(size(perf_matrix, 1)), Válidas: $(length(valid_rows))")
-    # println(perf_matrix[valid_rows, :])
-    # exit(1)
-
+    
     # Criar um PP para todos os deltas simnultaneamente
     # Preparar nome do arquivo
     output_name = "pp_$(metric)"
@@ -156,6 +148,7 @@ function create_performance_profile(filepath::String, metric::String)
         end
         
         perf_matrix_for_delta = perf_matrix[indices, :]
+        # valid_rows = findall(row -> !all(isnan, row) , eachrow(perf_matrix_for_delta))
         valid_rows = findall(row -> !all(isnan, row) && !any(==(0.0), row), eachrow(perf_matrix_for_delta))
 
         perf_matrix_for_delta = perf_matrix_for_delta[valid_rows, :]
@@ -164,19 +157,6 @@ function create_performance_profile(filepath::String, metric::String)
         if all(isnan, perf_matrix_for_delta)
             println("Nenhum dado válido encontrado para a métrica '$metric' com delta = $delta.")
             continue
-        end
-        
-        # Imprimir estatísticas para o delta atual
-        println("Estatísticas para delta=$delta, métrica='$(METRICS[metric])':")
-        for (solver_idx, solver) in enumerate(SOLVER_NAMES)
-            if solver_idx <= size(perf_matrix_for_delta, 2)
-                valid_values = filter(!isnan, perf_matrix_for_delta[:, solver_idx])
-                if !isempty(valid_values)
-                    println("$solver: Min=$(minimum(valid_values)), Max=$(maximum(valid_values)), Média=$(round(mean(valid_values), digits=2)), Mediana=$(round(median(valid_values), digits=2))")
-                else
-                    println("$solver: Sem valores válidos para este delta")
-                end
-            end
         end
         
         # Filtrar solvers que têm dados para este delta
@@ -201,10 +181,10 @@ function create_performance_profile(filepath::String, metric::String)
         base_dir = datadir("plots", delta_str_folder)
         
         # Preparar nome do arquivo
-        filename_base = replace(basename(filepath), ".jld2" => "")
-        output_name = "perf_profile_$(metric)_$(filename_base)"
+        # filename_base = replace(basename(filepath), ".jld2" => "")
+        output_name = "pp_$(metric)"
 
-        title_text = "Performance Profile - $(METRICS[metric]) (δ = $delta)"
+        title_text = "$(METRICS[metric]) (δ = $delta)"
     
         # # Criar o gráfico
         # default(
@@ -220,9 +200,9 @@ function create_performance_profile(filepath::String, metric::String)
                 xlabel    = "τ",
                 ylabel    = "ρ(τ)",
                 lw        = 3,
-                palette   = :viridis,
+                palette   = [:red, :blue, :green],
                 linestyles= [:solid :dash :dot :dashdot],
-                legend    = :topright,
+                legend    = :bottomright,
                 grid      = :none,
                 framestyle= :box,
                 # size      = (1200, 800),

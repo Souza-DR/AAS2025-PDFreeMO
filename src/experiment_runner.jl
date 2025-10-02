@@ -134,13 +134,24 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
 
     try        
         if config.solver_name == :PDFPM
-            # Executar o solver usando as matrizes pré-computadas
-            result = solver_function(x -> safe_evalf_solver(problem_instance, x),
-                                     config.data_matrices,
-                                     config.delta,
-                                     config.initial_point,
-                                     options; evalJf = x -> safe_evalJf_solver(problem_instance, x),
-                                     lb = l, ub = u)
+            if config.problem_name == :AAS1 || config.problem_name == :AAS2
+                # Executar o solver usando as matrizes pré-computadas
+                result = solver_function(x -> safe_evalf_solver(problem_instance, x),
+                                        config.data_matrices,
+                                        config.delta,
+                                        config.initial_point,
+                                        options;
+                                        lb = l, ub = u)
+            else
+                # Executar o solver usando as matrizes pré-computadas
+                result = solver_function(x -> safe_evalf_solver(problem_instance, x),
+                                        config.data_matrices,
+                                        config.delta,
+                                        config.initial_point,
+                                        options; evalJf = x -> safe_evalJf_solver(problem_instance, x),
+                                        lb = l, ub = u)
+            end
+            
         elseif config.solver_name == :ProxGrad || config.solver_name == :CondG
             # Executar o solver usando as matrizes pré-computadas
             result = solver_function(x -> safe_evalf_solver(problem_instance, x),
