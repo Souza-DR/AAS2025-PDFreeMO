@@ -10,6 +10,7 @@ struct CommonSolverOptions{T<:Real}
     max_time::T
     print_interval::Int
     store_trace::Bool
+    stop_criteria::Symbol
     
     # Constructor com valores padrão
     function CommonSolverOptions{T}(;
@@ -19,9 +20,10 @@ struct CommonSolverOptions{T<:Real}
         ftol::T = 1e-4,
         max_time::T = 3600.0,
         print_interval::Integer = 10,
-        store_trace::Bool = false
+        store_trace::Bool = false,
+        stop_criteria::Symbol = :NormProgress
     ) where T<:Real
-        new{T}(verbose, max_iter, opt_tol, ftol, max_time, print_interval, store_trace)
+        new{T}(verbose, max_iter, opt_tol, ftol, max_time, print_interval, store_trace, stop_criteria)
     end
 end
 
@@ -90,7 +92,7 @@ function to_proxgrad_options(config::SolverConfiguration{T}) where T
         print_interval = common.print_interval,
         store_trace = common.store_trace,
         mu = mu_val,
-        stop_criteria = :NormProgress
+        stop_criteria = common.stop_criteria
     )
 end
 
@@ -119,7 +121,7 @@ function to_pdfpm_options(config::SolverConfiguration{T}) where T
         sigma = sigma_val,
         alpha = alpha_val,
         max_subproblem_iter = max_subproblem_iter_val,
-        stop_criteria = :NormProgress
+        stop_criteria = common.stop_criteria
     )
 end
 
@@ -137,7 +139,7 @@ function to_condg_options(config::SolverConfiguration{T}) where T
         max_time = common.max_time,
         print_interval = common.print_interval,
         store_trace = common.store_trace,
-        stop_criteria = :NormProgress
+        stop_criteria = common.stop_criteria
     )
 end
 
