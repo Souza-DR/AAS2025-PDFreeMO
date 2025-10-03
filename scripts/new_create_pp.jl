@@ -17,7 +17,7 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
-const SOLVER_NAMES = ["PDFPM", "CondG"]
+const SOLVER_NAMES = ["PDFPM", "CondG", "ProxGrad"]
 
 # Métricas disponíveis para análise
 const METRICS = Dict(
@@ -28,7 +28,7 @@ const METRICS = Dict(
 )
 
 # Formatos de saída para os gráficos (apenas vetoriais)
-const OUTPUT_FORMATS = [:svg, :eps]
+const OUTPUT_FORMATS = [:svg, :pdf]
 
 # ========================================================================================
 # FUNÇÕES AUXILIARES
@@ -122,10 +122,10 @@ function create_performance_profile(filepath::String, metric::String)
         )
 
     # Salvar o gráfico
-    mkpath(joinpath(datadir("plots"), "bench"))
-    output_file = joinpath("data/plots/bench", "$(output_name).svg")
+    mkpath(joinpath(datadir("plots"), "PP"))
+    output_file = joinpath("data/plots/PP", "$(output_name).svg")
     saved_files = savefig(p, output_file)
-    output_file = joinpath("data/plots/bench", "$(output_name).ps")
+    output_file = joinpath("data/plots/PP", "$(output_name).pdf")
     saved_files = savefig(p, output_file)
     # all_saved_files[delta] = saved_files
     println("Performance profile salvo em: $output_file")
@@ -178,7 +178,7 @@ function create_performance_profile(filepath::String, metric::String)
         
         # Criar estrutura de pastas organizadas por delta
         delta_str_folder = replace(string(delta), "." => "-")
-        base_dir = datadir("plots", delta_str_folder)
+        base_dir = datadir("plots", "PP", delta_str_folder)
         
         # Preparar nome do arquivo
         # filename_base = replace(basename(filepath), ".jld2" => "")
@@ -213,7 +213,7 @@ function create_performance_profile(filepath::String, metric::String)
         mkpath(base_dir)
         output_file = joinpath("$(base_dir)", "$(output_name).svg")
         saved_files = savefig(p, output_file)
-        output_file = joinpath("$(base_dir)", "$(output_name).ps")
+        output_file = joinpath("$(base_dir)", "$(output_name).pdf")
         saved_files = savefig(p, output_file)
         # all_saved_files[delta] = saved_files
         println("Performance profile salvo em: $output_file")
