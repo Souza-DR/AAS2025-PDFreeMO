@@ -17,7 +17,7 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
-const SOLVER_NAMES = ["PDFPM", "CondG", "ProxGrad"]
+const SOLVER_NAMES = ["PDFPM", "Dfree"]
 
 # Métricas disponíveis para análise
 const METRICS = Dict(
@@ -95,7 +95,8 @@ function create_performance_profile(filepath::String, metric::String)
     
     # Criar um PP para todos os deltas simnultaneamente
     # Preparar nome do arquivo
-    output_name = "pp_$(metric)"
+    filename_base = replace(basename(filepath), ".jld2" => "")
+    output_name = "pp_$(metric)_$(filename_base)"
     title_text = "$(METRICS[metric])"
 
     # Criar o gráfico
@@ -181,8 +182,8 @@ function create_performance_profile(filepath::String, metric::String)
         base_dir = datadir("plots", "PP", delta_str_folder)
         
         # Preparar nome do arquivo
-        # filename_base = replace(basename(filepath), ".jld2" => "")
-        output_name = "pp_$(metric)"
+        filename_base = replace(basename(filepath), ".jld2" => "")
+        output_name = "pp_$(metric)_$(filename_base)"
 
         title_text = "$(METRICS[metric]) (δ = $delta)"
     
