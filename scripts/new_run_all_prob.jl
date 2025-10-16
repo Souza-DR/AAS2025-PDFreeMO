@@ -20,6 +20,7 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
     max_time = 3600.0,             # Tempo máximo em segundos
     print_interval = 1,           # Intervalo de impressão
     store_trace = false,           # Não armazenar trace para economizar memória
+    stop_criteria = :NormProgress
 )
 
 # Configurar parâmetros ESPECÍFICOS por solver (opcional)
@@ -35,7 +36,7 @@ const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
 )
 
 # Outras configurações do benchmark
-const SOLVERS = [:PDFPM, :ProxGrad, :CondG] # Usar símbolos para os solvers
+const SOLVERS = [:PDFPM, :Dfree, :ProxGrad, :CondG] # Usar símbolos para os solvers
 # const SOLVERS = [:PDFPM]
 const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]

@@ -17,7 +17,7 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
-const SOLVER_NAMES = ["PDFPM", "Dfree"]
+const SOLVER_NAMES = ["PDFPM", "CondG", "ProxGrad"]
 
 # Métricas disponíveis para análise
 const METRICS = Dict(
@@ -87,8 +87,8 @@ function create_performance_profile(filepath::String, metric::String)
 
     # Filtrar problemas que nao foram resolvidos por nenhum dos solvers
     valid_rows = []
-    # valid_rows = findall(row -> !all(isnan, row) , eachrow(perf_matrix))
-    valid_rows = findall(row -> !all(isnan, row) && !any(==(0.0), row), eachrow(perf_matrix))
+    valid_rows = findall(row -> !all(isnan, row) , eachrow(perf_matrix))
+    # valid_rows = findall(row -> !all(isnan, row) && !any(==(0.0), row), eachrow(perf_matrix))
 
 
     println("Total de instâncias: $(size(perf_matrix, 1)), Válidas: $(length(valid_rows))")

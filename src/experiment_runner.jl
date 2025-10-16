@@ -129,11 +129,13 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
        
     l, u = problem_instance.bounds
         
-    # Obter a função do solver e suas opções
-    solver_function = getfield(MOSolvers, config.solver_name)
+    # # Obter a função do solver e suas opções
+    # solver_function = getfield(MOSolvers, config.solver_name)
 
     try        
         if config.solver_name == :PDFPM
+            # Obter a função do solver e suas opções
+            solver_function = getfield(MOSolvers, :PDFPM)
             if config.problem_name == :AAS1 || config.problem_name == :AAS2
                 # Executar o solver usando as matrizes pré-computadas
                 result = solver_function(x -> safe_evalf_solver(problem_instance, x),
@@ -151,8 +153,20 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                                         options; evalJf = x -> safe_evalJf_solver(problem_instance, x),
                                         lb = l, ub = u)
             end
-            
+        elseif config.solver_name == :Dfree
+            # Obter a função do solver e suas opções
+            solver_function = getfield(MOSolvers, :PDFPM)
+            # Executar o solver usando as matrizes pré-computadas
+            result = solver_function(x -> safe_evalf_solver(problem_instance, x),
+                                     config.data_matrices,
+                                     config.delta,
+                                     config.initial_point,
+                                     options;
+                                     lb = l, ub = u)    
+        
         elseif config.solver_name == :ProxGrad || config.solver_name == :CondG
+            # Obter a função do solver e suas opções
+            solver_function = getfield(MOSolvers, config.solver_name)
             # Executar o solver usando as matrizes pré-computadas
             result = solver_function(x -> safe_evalf_solver(problem_instance, x),
                                      x -> safe_evalJf_solver(problem_instance, x),

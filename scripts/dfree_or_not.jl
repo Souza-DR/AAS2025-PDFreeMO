@@ -9,8 +9,8 @@ using .AAS2025PDFreeMO
 
 
 const SOLVERS = [:Dfree, :PDFPM] 
-const NRUN = 200
-const DELTAS = [0.0, 0.02, 0.05, 0.1]
+const NRUN = 50
+const DELTAS = [0.0, 0.1]
 # all_list = [Symbol(p) for p in sort(MOProblems.filter_problems(has_jacobian=true))]
 all_list = [Symbol(p) for p in sort(MOProblems.get_problem_names())]
 const PROBLEMS = all_list
@@ -27,7 +27,7 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
     max_time = 3600.0,             # Tempo máximo em segundos
     print_interval = 1,           # Intervalo de impressão
     store_trace = false,           # Não armazenar trace para economizar memória
-    stop_criteria = :NormProgress   # Critério de parada padrão
+    stop_criteria = :pdfpm # Critério de parada padrão
 )
 
 # Configurar parâmetros ESPECÍFICOS por solver (opcional)
