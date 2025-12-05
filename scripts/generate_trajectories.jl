@@ -1,6 +1,6 @@
 # This script generates and saves trajectory plots (initial vs. final objective
-# values) for bi-objective problems.  The plots are saved in SVG and EPS formats
-# under `data/plots/trajectories/PROBLEM_NAME/DELTA_VALUE/{svg,eps}`.
+# values) for bi-objective problems.  The plots are saved in PDF and EPS formats
+# under `data/plots/trajectories/PROBLEM_NAME/DELTA_VALUE/{pdf,eps}`.
 # The workflow is interactive – the user selects the JLD2 data file and the
 # problem(s) to analyse.
 
@@ -15,12 +15,12 @@ using MOProblems
 include(srcdir("AAS2025PDFreeMO.jl"))
 using .AAS2025PDFreeMO
 
-const OUTPUT_FORMATS = [:svg, :eps]
+const OUTPUT_FORMATS = [:pdf, :eps]
 
 """
     save_figure(fig, name::String, base_dir::String; formats = OUTPUT_FORMATS)
 
-Helper that saves `fig` inside `base_dir/{svg,eps}/` with the provided `name`.
+Helper that saves `fig` inside `base_dir/{pdf,eps}/` with the provided `name`.
 Returns a dictionary mapping the format symbol to the absolute path.
 """
 function save_figure(fig, name::String, base_dir::String; formats = OUTPUT_FORMATS)

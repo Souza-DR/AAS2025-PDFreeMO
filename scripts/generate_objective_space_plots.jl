@@ -1,6 +1,6 @@
 using DrWatson
 using MOProblems
-using CairoMakie     # backend com suporte a EPS, SVG, PDF
+using CairoMakie     # backend com suporte a EPS e PDF
 @quickactivate "AAS2025-PDFreeMO"
 include(srcdir("AAS2025PDFreeMO.jl"))
 using .AAS2025PDFreeMO
@@ -13,21 +13,21 @@ const GRID_POINTS = 200
 println("Problems selected: $PROBLEMS")
 
 """
-    save_figure(fig, name::Symbol, base_dir::String; formats=[:svg, :eps])
+    save_figure(fig, name::Symbol, base_dir::String; formats=[:pdf, :eps])
 
-Saves the figure `fig` in specified formats (SVG, EPS, etc.) in separate subdirectories,
+Saves the figure `fig` in specified formats (PDF, EPS, etc.) in separate subdirectories,
 with a name based on `name`.
 
 # Arguments
 - `fig`: The figure to save
 - `name::Symbol`: Base name for the file
 - `base_dir::String`: Base directory where format-specific subdirectories will be created
-- `formats`: Array of formats to save (e.g., [:svg, :eps])
+- `formats`: Array of formats to save (e.g., [:pdf, :eps])
 
 # Returns
 - `Dict{Symbol,String}`: Dictionary mapping formats to saved file paths
 """
-function save_figure(fig, name::Symbol, base_dir::String; formats=[:svg, :eps])
+function save_figure(fig, name::Symbol, base_dir::String; formats=[:pdf, :eps])
     saved = Dict{Symbol,String}()
     
     for fmt in formats
@@ -39,7 +39,7 @@ function save_figure(fig, name::Symbol, base_dir::String; formats=[:svg, :eps])
         fname = joinpath(format_dir, "$(name).$(fmt)")
         
         try
-            save(fname, fig)  # CairoMakie supports SVG, PDF, EPS
+            save(fname, fig)  # CairoMakie supports PDF, EPS
             println("✓ Saved $fmt: $fname")
             saved[fmt] = fname
         catch e
@@ -53,7 +53,7 @@ end
 """
     generate_objective_space_plot(problem_name::Symbol;
                                  grid_points::Int=100,
-                                 formats=[:svg, :eps])
+                                 formats=[:pdf, :eps])
 
 Creates and saves the objective space plot for a biobjective problem.
 Returns the Figure object from Makie.
@@ -61,14 +61,14 @@ Returns the Figure object from Makie.
 # Arguments
 - `problem_name::Symbol`: Problem name
 - `grid_points::Int=100`: Number of grid points
-- `formats`: Array of output formats (e.g., [:svg, :eps])
+- `formats`: Array of output formats (e.g., [:pdf, :eps])
 
 # Returns
 - `Tuple{Figure, Dict}`: Makie Figure object and dictionary of saved files
 """
 function generate_objective_space_plot(problem_name::Symbol;
                                       grid_points::Int=100,
-                                      formats=[:svg, :eps])
+                                      formats=[:pdf, :eps])
     println("\n=== Generating plot for $problem_name ===")
     
     # Create problem instance
@@ -126,7 +126,7 @@ function main()
     # Show output directories
     base_dir = datadir("plots", "obj_space")
     println("Output directories:")
-    for fmt in [:svg, :eps]
+    for fmt in [:pdf, :eps]
         println("  - $(uppercase(string(fmt))): $(joinpath(base_dir, string(fmt)))")
     end
     
@@ -137,7 +137,7 @@ function main()
         println("\n[$i/$(length(PROBLEMS))] Processing $pname")
         try
             fig, saved = generate_objective_space_plot(pname;
-                            grid_points=GRID_POINTS, formats=[:svg, :eps])
+                            grid_points=GRID_POINTS, formats=[:pdf, :eps])
             all_saved[pname] = saved
             successful += 1
         catch e
@@ -149,7 +149,7 @@ function main()
     println("\n" * "="^60)
     println("SUMMARY: processed=$(length(PROBLEMS)), successful=$successful, failed=$failed")
     println("Output directories:")
-    for fmt in [:svg, :eps]
+    for fmt in [:pdf, :eps]
         println("  - $(uppercase(string(fmt))): $(joinpath(base_dir, string(fmt)))")
     end
     println("="^60)

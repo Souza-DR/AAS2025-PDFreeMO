@@ -13,7 +13,7 @@ using .AAS2025PDFreeMO
 # ========================================================================================
 
 # Formatos de saída para os gráficos (apenas vetoriais)
-const OUTPUT_FORMATS = [:svg, :eps]
+const OUTPUT_FORMATS = [:pdf, :eps]
 
 # ========================================================================================
 # FUNÇÕES AUXILIARES
@@ -29,7 +29,7 @@ with a name based on `name`.
 - `fig`: The figure to save
 - `name::String`: Base name for the file
 - `base_dir::String`: Base directory where format-specific subdirectories will be created
-- `formats`: Array of formats to save (e.g., [:svg, :eps])
+- `formats`: Array of formats to save (e.g., [:pdf, :eps])
 
 # Returns
 - `Dict{Symbol,String}`: Dictionary mapping formats to saved file paths
@@ -46,7 +46,7 @@ function save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS
         fname = joinpath(format_dir, "$(name).$(fmt)")
         
         try
-            save(fname, fig)  # CairoMakie supports SVG, PDF, EPS
+            save(fname, fig)  # CairoMakie supports PDF, EPS
             println("✓ Saved $fmt: $fname")
             saved[fmt] = fname
         catch e
