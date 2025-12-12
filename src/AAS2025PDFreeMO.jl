@@ -5,7 +5,6 @@ module AAS2025PDFreeMO
     using JLD2
     using MOSolvers
     using MOProblems
-    using MOMetrics
 
     include("solver_options.jl")
     include("types.jl")
