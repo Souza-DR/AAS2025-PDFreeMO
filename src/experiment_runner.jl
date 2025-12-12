@@ -36,7 +36,7 @@ function generate_experiment_configs(problems, solvers, nrun, deltas, common_opt
 
         # Para cada delta, pré-computar uma única matriz A a ser partilhada por todos os solvers
         for delta in deltas
-            data_matrices = datas(n, problem_instance.nobj, delta)  # Fixa A para este (problema, δ)
+            data_matrices = datas(n, problem_instance.nobj)  # Fixa A para este (problema, δ)
 
             for solver in solvers
                 # Garantir que solver_name seja Symbol
