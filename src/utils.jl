@@ -20,37 +20,6 @@ function datas(n, m)
     return A
 end
 
-# Funções seguras de avaliação que capturam erros de domínio
-function safe_evalf(problem, x)
-    try
-        result = MOProblems.eval_f(problem, x)
-        return (success = true, value = result, error = nothing)
-    catch e
-        if isa(e, MOProblems.DomainViolationError)
-            # Violação de domínio - falha esperada
-            return (success = false, value = nothing, error = e)
-        else
-            # Outro tipo de erro - pode ser um bug real
-            rethrow(e)
-        end
-    end
-end
-
-function safe_evalJf(problem, x)
-    try
-        result = MOProblems.eval_jacobian(problem, x)
-        return (success = true, value = result, error = nothing)
-    catch e
-        if isa(e, MOProblems.DomainViolationError)
-            # Violação de domínio - falha esperada
-            return (success = false, value = nothing, error = e)
-        else
-            # Outro tipo de erro - pode ser um bug real
-            rethrow(e)
-        end
-    end
-end
-
 # Funções compatíveis com a interface do solver
 function safe_evalf_solver(problem, x)
     try
@@ -112,10 +81,14 @@ function extract_objective_space_data(problem; grid_points=100)
         x_range = range(lb[1], ub[1], length=grid_points)
         for x1 in x_range
             x = [x1]
-            result = safe_evalf(problem, x)
-            if result.success
-                push!(f1_vals, result.value[1])
-                push!(f2_vals, result.value[2])
+            try
+                val = safe_evalf_solver(problem, x)
+                push!(f1_vals, val[1])
+                push!(f2_vals, val[2])
+            catch e
+                if !isa(e, MOProblems.DomainViolationError)
+                    rethrow(e)
+                end
             end
         end
     else
@@ -136,12 +109,16 @@ function extract_objective_space_data(problem; grid_points=100)
                     x[i] = (lb[i] + ub[i]) / 2
                 end
                 
-                result = safe_evalf(problem, x)
-                if result.success
+                try
+                    val = safe_evalf_solver(problem, x)
                     if 1.0 == 1.0
-                    # if result.value[1] <= 0.5 && result.value[2] <= 1.0
-                        push!(f1_vals, result.value[1])
-                        push!(f2_vals, result.value[2])
+                        # if val[1] <= 0.5 && val[2] <= 1.0
+                        push!(f1_vals, val[1])
+                        push!(f2_vals, val[2])
+                    end
+                catch e
+                    if !isa(e, MOProblems.DomainViolationError)
+                        rethrow(e)
                     end
                 end
             end
