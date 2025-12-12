@@ -1,31 +1,18 @@
 using Plots
 
 """
-    datas(n, m, delta)
+    datas(n, m)
 
 Gera um vetor de `m` matrizes `n x n` para serem usadas nos experimentos.
-
-Se `delta` for zero, as matrizes geradas são matrizes de zeros. Caso contrário,
-são matrizes com elementos aleatórios uniformemente distribuídos entre 0 e 1.
 
 # Arguments
 - `n::Int`: Dimensão das matrizes (número de variáveis do problema).
 - `m::Int`: Número de matrizes a serem geradas (número de objetivos do problema).
-- `delta::Real`: Parâmetro de robustez. Se `delta == 0`, gera matrizes nulas.
-
 # Returns
 - `Vector{Matrix{Float64}}`: Um vetor contendo `m` matrizes `n x n`.
 """
-function datas(n, m, delta)
+function datas(n, m)
     A = Vector{Matrix{Float64}}(undef, m)
-    # for ind = 1:m
-    #     if delta == 0.0
-    #         A[ind] = zeros(n, n)
-    #     else
-    #         A[ind] = rand(n, n)
-    #     end
-    # end
-    
     for ind = 1:m
         A[ind] = rand(n, n)
     end
