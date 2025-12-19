@@ -1,6 +1,6 @@
 # This script generates and saves trajectory plots (initial vs. final objective
-# values) for bi-objective problems.  The plots are saved in PDF and EPS formats
-# under `data/plots/trajectories/PROBLEM_NAME/DELTA_VALUE/{pdf,eps}`.
+# values) for bi-objective problems. The plots are saved as PDF in
+# `data/plots/trajectories/PROBLEM_NAME/DELTA_VALUE/pdf`.
 # The workflow is interactive – the user selects the JLD2 data file and the
 # problem(s) to analyse.
 
@@ -8,34 +8,55 @@ using DrWatson
 @quickactivate "AAS2025-PDFreeMO"
 
 using JLD2
-using CairoMakie      # Vector-graphics backend
+using Plots
+# using CairoMakie      # (opcional) backend com suporte a PDF de alta qualidade (ver `quality = "high"`)
 using MOProblems
 
 # Load the local module to reuse utility helpers
 include(srcdir("AAS2025PDFreeMO.jl"))
 using .AAS2025PDFreeMO
 
-const OUTPUT_FORMATS = [:pdf, :eps]
+"""
+    quality
+
+Controla qual biblioteca de plot será usada:
+
+- `"normal"` (padrão): usa `Plots.jl` (mais leve para instalar) e salva em PDF.
+- `"high"`: usa `CairoMakie.jl` e salva em PDF (alta qualidade).
+
+Se você colocar `quality = "high"`, garanta que `CairoMakie` está no seu ambiente:
+
+julia --project -e 'using Pkg; Pkg.add("CairoMakie")'
+
+ou no REPL:
+pkg> add CairoMakie
+"""
+const quality::String = "normal"
 
 """
-    save_figure(fig, name::String, base_dir::String; formats = OUTPUT_FORMATS)
+    save_figure(plot_or_fig, name::String, base_dir::String)
 
-Helper that saves `fig` inside `base_dir/{pdf,eps}/` with the provided `name`.
+Helper that saves `plot_or_fig` inside `base_dir/pdf/` with the provided `name`.
 Returns a dictionary mapping the format symbol to the absolute path.
 """
-function save_figure(fig, name::String, base_dir::String; formats = OUTPUT_FORMATS)
+function save_figure(plot_or_fig, name::String, base_dir::String)
     saved = Dict{Symbol, String}()
-    for fmt in formats
-        fmt_dir = joinpath(base_dir, string(fmt))
-        mkpath(fmt_dir)
-        fname = joinpath(fmt_dir, "$(name).$(fmt)")
-        try
-            save(fname, fig)
-            saved[fmt] = fname
-            println("✓ Saved $(uppercase(string(fmt))) : $fname")
-        catch e
-            println("✗ Failed to save $(fmt) – $e")
+
+    fmt_dir = joinpath(base_dir, "pdf")
+    mkpath(fmt_dir)
+    fname = joinpath(fmt_dir, "$(name).pdf")
+
+    try
+        if plot_or_fig isa Plots.Plot
+            savefig(plot_or_fig, fname)
+        else
+            _ensure_cairomakie_available()
+            CairoMakie.save(fname, plot_or_fig)
         end
+        saved[:pdf] = fname
+        println("✓ Saved PDF : $fname")
+    catch e
+        println("✗ Failed to save PDF – $e")
     end
     return saved
 end
@@ -114,14 +135,67 @@ function create_and_save_trajectory_plots(filepath::String, problem_name::Symbol
         return Dict{Float64, Dict{Symbol, String}}()
     end
 
+    println("Quality: $(quality)")
     filename_base = replace(basename(filepath), ".jld2" => "")
-    results = Dict{Float64, Dict{Symbol, String}}()
+    q = lowercase(quality)
+    if q == "normal"
+        return _create_with_plots(deltas, traj_dict, solver_name, filename_base, problem_name)
+    elseif q == "high"
+        _ensure_cairomakie_available()
+        return _create_with_cairomakie(deltas, traj_dict, solver_name, filename_base, problem_name)
+    else
+        error("quality inválido: $(quality). Use \"normal\" ou \"high\".")
+    end
+end
 
+function _create_with_plots(deltas, traj_dict, solver_name, filename_base, problem_name)
+    gr()  # backend leve com suporte a PDF
+
+    results = Dict{Float64, Dict{Symbol, String}}()
     for delta in deltas
         trajectories = traj_dict[delta]
-        println("Number of trajectories[$(delta)]: $(length(trajectories))")
-        fig = Figure(size = (800, 600))
-        ax  = Axis(fig[1, 1];
+        println("Number of trajectories[$(delta)] (Plots): $(length(trajectories))")
+
+        p = plot(
+            title  = "Trajectories – $(problem_name) $(solver_name)",
+            xlabel = "F1(x)",
+            ylabel = "F2(x)",
+            legend = false,
+            size   = (800, 600),
+            dpi    = 600,
+            fontfamily = "Computer Modern",
+            framestyle = :box,
+        )
+
+        for (f_init, f_final) in trajectories
+            plot!(
+                p,
+                [f_init[1], f_final[1]],
+                [f_init[2], f_final[2]];
+                color = :black,
+                linewidth = 1,
+                linestyle = :dash,
+            )
+            scatter!(p, [f_init[1]], [f_init[2]]; markersize = 8, markercolor = :gray)
+            scatter!(p, [f_final[1]], [f_final[2]]; markersize = 8, markercolor = :red)
+        end
+
+        delta_str = replace(string(delta), "." => "-")
+        base_dir  = datadir("plots", "trajectories", string(problem_name), delta_str)
+        output_name = "trajectory_$(solver_name)_delta_$(delta_str)_$(filename_base)"
+        results[delta] = save_figure(p, output_name, base_dir)
+    end
+    return results
+end
+
+function _create_with_cairomakie(deltas, traj_dict, solver_name, filename_base, problem_name)
+    results = Dict{Float64, Dict{Symbol, String}}()
+    for delta in deltas
+        trajectories = traj_dict[delta]
+        println("Number of trajectories[$(delta)] (CairoMakie): $(length(trajectories))")
+
+        fig = CairoMakie.Figure(size = (800, 600))
+        ax  = CairoMakie.Axis(fig[1, 1];
                    title  = "Trajectories – $(problem_name) $(solver_name)",
                    xlabel = "F₁(x)",
                    ylabel = "F₂(x)",
@@ -130,20 +204,31 @@ function create_and_save_trajectory_plots(filepath::String, problem_name::Symbol
                    ylabelsize = 25)
 
         for (f_init, f_final) in trajectories
-            scatter!(ax, [f_init[1]],  [f_init[2]];  markersize = 6, color = :gray)
-            scatter!(ax, [f_final[1]], [f_final[2]]; markersize = 6, color = :red)
-            lines!(ax, [f_init[1], f_final[1]], [f_init[2], f_final[2]]; color = :black, linewidth = 1, linestyle = :dash)
-            scatter!(ax, [f_init[1]],  [f_init[2]];  markersize = 10, color = :gray)
-            scatter!(ax, [f_final[1]], [f_final[2]]; markersize = 6, color = :red)
+            CairoMakie.lines!(ax, [f_init[1], f_final[1]], [f_init[2], f_final[2]]; color = :black, linewidth = 1, linestyle = :dash)
+            CairoMakie.scatter!(ax, [f_init[1]],  [f_init[2]];  markersize = 10, color = :gray)
+            CairoMakie.scatter!(ax, [f_final[1]], [f_final[2]]; markersize = 8, color = :red)
         end
 
         delta_str = replace(string(delta), "." => "-")
         base_dir  = datadir("plots", "trajectories", string(problem_name), delta_str)
         output_name = "trajectory_$(solver_name)_delta_$(delta_str)_$(filename_base)"
-        saved_paths = save_figure(fig, output_name, base_dir)
-        results[delta] = saved_paths
+        results[delta] = save_figure(fig, output_name, base_dir)
     end
     return results
+end
+
+function _ensure_cairomakie_available()
+    try
+        @eval using CairoMakie
+    catch e
+        error(
+            "quality = \"high\" requer CairoMakie no ambiente.\n" *
+            "Instale com:\n" *
+            "  julia --project -e 'using Pkg; Pkg.add(\"CairoMakie\")'\n\n" *
+            "Erro original: $(e)",
+        )
+    end
+    return nothing
 end
 
 """
