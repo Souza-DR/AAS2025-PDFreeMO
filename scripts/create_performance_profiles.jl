@@ -2,7 +2,6 @@ using DrWatson
 @quickactivate "AAS2025-PDFreeMO"
 using JLD2
 using BenchmarkProfiles
-using CairoMakie  # Usando apenas CairoMakie para formatos vetoriais
 using Statistics
 using Printf
 using Plots
@@ -27,57 +26,14 @@ const METRICS = Dict(
     "total_time" => "Execution time (s)"
 )
 
-# Formatos de saída para os gráficos (apenas vetoriais)
-const OUTPUT_FORMATS = [:svg, :pdf]
-
 # ========================================================================================
 # FUNÇÕES AUXILIARES
 # ========================================================================================
 
 """
-    save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS)
-
-Saves the figure in specified formats (SVG, EPS) in separate subdirectories,
-with a name based on `name`.
-
-# Arguments
-- `fig`: The figure to save
-- `name::String`: Base name for the file
-- `base_dir::String`: Base directory where format-specific subdirectories will be created
-- `formats`: Array of formats to save (e.g., [:svg, :eps])
-
-# Returns
-- `Dict{Symbol,String}`: Dictionary mapping formats to saved file paths
-"""
-function save_figure(fig, name::String, base_dir::String; formats=OUTPUT_FORMATS)
-    saved = Dict{Symbol,String}()
-    
-    for fmt in formats
-        # Create format-specific directory
-        format_dir = joinpath(base_dir, string(fmt))
-        mkpath(format_dir)
-        
-        # Create filename
-        fname = joinpath(format_dir, "$(name).$(fmt)")
-        
-        try
-            save(fname, fig)  # CairoMakie supports SVG, PDF, EPS
-            println("✓ Saved $fmt: $fname")
-            saved[fmt] = fname
-        catch e
-            println("✗ Failed to save $fmt for $name: $e")
-        end
-    end
-    
-    return saved
-end
-
-"""
 Cria e salva o performance profile
 """
 function create_performance_profile(filepath::String, metric::String)
-    # Extrair todos os dados de uma vez
-    # perf_matrix, instance_info = extract_performance_data(filepath, metric)
     perf_matrix, instance_info = AAS2025PDFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES)
     
     if perf_matrix === nothing || isempty(perf_matrix)
@@ -122,13 +78,11 @@ function create_performance_profile(filepath::String, metric::String)
             sampletol = 1e-4
         )
 
-    # Salvar o gráfico
-    mkpath(joinpath(datadir("plots"), "PP"))
-    output_file = joinpath("data/plots/PP", "$(output_name).svg")
-    saved_files = savefig(p, output_file)
-    output_file = joinpath("data/plots/PP", "$(output_name).pdf")
-    saved_files = savefig(p, output_file)
-    # all_saved_files[delta] = saved_files
+    base_dir = datadir("plots", "PP")
+    pdf_dir = joinpath(base_dir, "pdf")
+    mkpath(pdf_dir)
+    output_file = joinpath(pdf_dir, "$(output_name).pdf")
+    savefig(p, output_file)
     println("Performance profile salvo em: $output_file")
     # Encontrar deltas únicos a partir das informações das instâncias
     unique_deltas = unique([info[2] for info in instance_info])
@@ -206,17 +160,14 @@ function create_performance_profile(filepath::String, metric::String)
                 legend    = :bottomright,
                 grid      = :none,
                 framestyle= :box,
-                # size      = (1200, 800),
                 sampletol = 1e-4
             )
         
-        # Salvar o gráfico
-        mkpath(base_dir)
-        output_file = joinpath("$(base_dir)", "$(output_name).svg")
-        saved_files = savefig(p, output_file)
-        output_file = joinpath("$(base_dir)", "$(output_name).pdf")
-        saved_files = savefig(p, output_file)
-        # all_saved_files[delta] = saved_files
+        pdf_dir = joinpath(base_dir, "pdf")
+        mkpath(pdf_dir)
+        output_file = joinpath(pdf_dir, "$(output_name).pdf")
+        savefig(p, output_file)
+        all_saved_files[delta] = Dict(:pdf => output_file)
         println("Performance profile salvo em: $output_file")
     end
     
@@ -238,7 +189,6 @@ function create_all_performance_profiles(filepath::String)
     end
     
     println("\n=== Todos os Performance Profiles foram gerados ===")
-    println("Formatos disponíveis: $(join(string.(OUTPUT_FORMATS), ", "))")
     
     return all_results
 end
@@ -250,7 +200,6 @@ end
 function main()
     println("=== Gerador de Performance Profiles ===")
     println("Usando dados JLD2 do repositório AAS2025-PDFreeMO")
-    println("Formatos de saída: $(join(string.(OUTPUT_FORMATS), ", "))")
     
     # Listar arquivos disponíveis
     jld2_files = list_jld2_files()
@@ -302,13 +251,10 @@ function main()
         # Mostrar diretórios de saída
         for delta in keys(results)
             delta_str = replace(string(delta), "." => "-")
-            base_dir = datadir("plots", delta_str)
-            println("\nDiretórios de saída para delta = $delta:")
-            for fmt in OUTPUT_FORMATS
-                fmt_dir = joinpath(base_dir, string(fmt))
-                if isdir(fmt_dir)
-                    println("  - $(uppercase(string(fmt))): $fmt_dir")
-                end
+            base_dir = datadir("plots", "PP", delta_str, "pdf")
+            println("\nDiretório de saída para delta = $delta:")
+            if isdir(base_dir)
+                println("  - PDF: $base_dir")
             end
         end
         
