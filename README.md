@@ -35,27 +35,26 @@ A Julia package for solving multi-objective optimization problems with composite
 ### Requirements
 - **Julia ≥ 1.11**
 
-### Step 1: Clone this repository
+### Step 1: Clone the unregistered dependencies
+```bash
+git clone https://github.com/VectorOptimizationGroup/MOProblems.jl.git
+git clone https://github.com/VectorOptimizationGroup/MOSolvers.jl.git
+```
+
+### Step 2: Clone this repository
 ```bash
 git clone https://github.com/Souza-DR/AAS2025-PDFreeMO.git
 cd AAS2025-PDFreeMO
 ```
 
-### Step 2: Activate and instantiate the local environment
-We strongly recommend activating the local project environment defined by `Project.toml`.
-
-```bash
-julia --project=. -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
-```
-
-### Step 3: Install unregistered dependencies
-Since `MOProblems.jl` and `MOSolvers.jl` are currently unregistered, you must install them directly from their repositories:
-
+### Step 3: Add the local packages to this project
 ```bash
 julia --project=. -e '
 using Pkg
-Pkg.add(url="https://github.com/VectorOptimizationGroup/MOProblems.jl.git")
-Pkg.add(url="https://github.com/VectorOptimizationGroup/MOSolvers.jl.git")
+Pkg.add(path="../MOProblems.jl")
+Pkg.add(path="../MOSolvers.jl")
+Pkg.instantiate()
+Pkg.precompile()
 '
 ```
 
