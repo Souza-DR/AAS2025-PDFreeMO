@@ -1,15 +1,16 @@
-using Plots
+using MOProblems
 
 """
     datas(n, m)
 
-Gera um vetor de `m` matrizes `n x n` para serem usadas nos experimentos.
+Generate a vector of `m` random `n×n` matrices (one per objective).
 
 # Arguments
-- `n::Int`: Dimensão das matrizes (número de variáveis do problema).
-- `m::Int`: Número de matrizes a serem geradas (número de objetivos do problema).
+- `n::Int`: Matrix dimension (number of variables).
+- `m::Int`: Number of matrices to generate (number of objectives).
+
 # Returns
-- `Vector{Matrix{Float64}}`: Um vetor contendo `m` matrizes `n x n`.
+- `Vector{Matrix{Float64}}`: `m` random `n×n` matrices.
 """
 function datas(n, m)
     A = Vector{Matrix{Float64}}(undef, m)
@@ -20,30 +21,43 @@ function datas(n, m)
     return A
 end
 
-# Funções compatíveis com a interface do solver
+# Safe wrappers compatible with the solver interface
+
+"""
+    safe_evalf_solver(problem, x)
+
+Evaluate the objective vector `f(x)` catching domain violations so the solver
+can handle them, while rethrowing unexpected errors.
+"""
 function safe_evalf_solver(problem, x)
     try
         return MOProblems.eval_f(problem, x)
     catch e
         if isa(e, MOProblems.DomainViolationError)
-            # Violação de domínio - lançar erro para o solver tratar
+            # Domain violation – let the solver handle it
             throw(e)
         else
-            # Outro tipo de erro - pode ser um bug real
+            # Unexpected error – propagate for visibility
             rethrow(e)
         end
     end
 end
 
+"""
+    safe_evalJf_solver(problem, x)
+
+Evaluate the Jacobian `Jf(x)` catching domain violations so the solver can
+handle them, while rethrowing unexpected errors.
+"""
 function safe_evalJf_solver(problem, x)
     try
         return MOProblems.eval_jacobian(problem, x)
     catch e
         if isa(e, MOProblems.DomainViolationError)
-            # Violação de domínio - lançar erro para o solver tratar
+            # Domain violation – let the solver handle it
             throw(e)
         else
-            # Outro tipo de erro - pode ser um bug real
+            # Unexpected error – propagate for visibility
             rethrow(e)
         end
     end
@@ -111,11 +125,8 @@ function extract_objective_space_data(problem; grid_points=100)
                 
                 try
                     val = safe_evalf_solver(problem, x)
-                    if 1.0 == 1.0
-                        # if val[1] <= 0.5 && val[2] <= 1.0
-                        push!(f1_vals, val[1])
-                        push!(f2_vals, val[2])
-                    end
+                    push!(f1_vals, val[1])
+                    push!(f2_vals, val[2])
                 catch e
                     if !isa(e, MOProblems.DomainViolationError)
                         rethrow(e)
