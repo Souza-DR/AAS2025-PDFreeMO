@@ -1,48 +1,52 @@
 using Dates
-using Random # Adicionado para gerar nomes de arquivos temporários únicos
+using Random # Added to generate unique temporary filenames.
 
 """
-Gera todas as configurações de experimentos com identificadores únicos por delta.
+    generate_experiment_configs(problems, solvers, nrun, deltas, common_options; solver_specific_options=Dict())
+
+Generate experiment configurations with unique run identifiers per
+(problem, solver, delta) combination.
 
 # Arguments
-- `problems`: Lista de problemas a serem testados
-- `solvers`: Lista de solvers a serem testados  
-- `nrun`: Número de execuções por combinação (problema, solver, delta)
-- `deltas`: Lista de valores de delta a serem testados
-- `common_options`: Opções comuns para todos os solvers
-- `solver_specific_options`: Opções específicas por solver (opcional)
+- `problems`: Problems to test.
+- `solvers`: Solvers to test.
+- `nrun`: Number of runs per (problem, solver, delta) combination.
+- `deltas`: Delta values to test.
+- `common_options`: Shared options for all solvers.
+- `solver_specific_options`: Optional solver-specific options.
 
 # Returns
-- `Vector{ExperimentConfig{T}}`: Lista de configurações de experimentos
+- `Vector{ExperimentConfig{T}}`: Experiment configurations.
 
 # Note
-Cada configuração recebe um `run_id` único dentro de cada combinação (problema, solver, delta),
-garantindo que não haja conflitos na estrutura de dados hierárquica.
+Each configuration receives a `run_id` unique within each
+(problem, solver, delta) combination, avoiding collisions in hierarchical
+result storage.
 """
 function generate_experiment_configs(problems, solvers, nrun, deltas, common_options::CommonSolverOptions{T}; solver_specific_options::Dict{Symbol, SolverSpecificOptions{T}} = Dict{Symbol, SolverSpecificOptions{T}}()) where T
     configs = ExperimentConfig{T}[]
 
     for problem_name in problems
-        # Garantir que problem_name seja Symbol
+        # Normalize problem name to a Symbol.
         problem_sym = isa(problem_name, Symbol) ? problem_name : Symbol(problem_name)
 
         problem_constructor = getfield(MOProblems, problem_sym)
         problem_instance = problem_constructor()
 
-        # Gerar pontos iniciais para este problema
+        # Generate initial points for this problem.
         n = problem_instance.nvar
         l, u = problem_instance.bounds
         initial_points = [l + rand(n) .* (u - l) for _ in 1:nrun]
 
-        # Para cada delta, pré-computar uma única matriz A a ser partilhada por todos os solvers
+        # For each delta, precompute a single set of A matrices shared by all solvers.
         for delta in deltas
-            data_matrices = datas(n, problem_instance.nobj)  # Fixa A para este (problema, δ)
+            data_matrices = datas(n, problem_instance.nobj)  # Fixed A for this (problem, delta).
 
             for solver in solvers
-                # Garantir que solver_name seja Symbol
+                # Normalize solver name to a Symbol.
                 solver_sym = isa(solver, Symbol) ? solver : Symbol(string(solver))
 
-                # Obter opções específicas para este solver, ou usar padrão vazio
+                # Use solver-specific options when provided, or fall back to defaults.
                 specific_opts = get(solver_specific_options, solver_sym, SolverSpecificOptions{T}())
                 solver_config = SolverConfiguration(common_options, specific_opts)
 
@@ -50,7 +54,7 @@ function generate_experiment_configs(problems, solvers, nrun, deltas, common_opt
                     config = ExperimentConfig(
                         solver_sym,
                         problem_sym,
-                        trial_idx,  # run_id único dentro de cada (problema, solver, delta)
+                        trial_idx,  # Unique within each (problem, solver, delta).
                         delta,
                         copy(x0),
                         solver_config,
@@ -66,8 +70,10 @@ function generate_experiment_configs(problems, solvers, nrun, deltas, common_opt
 end
 
 """
-Salva um vetor de resultados em um arquivo JLD2.
-Função interna para ser usada por `save_final_results` e salvamento em lote.
+    _save_results_to_jld2(filepath, results)
+
+Persist a vector of experiment results to a JLD2 file. Internal helper used by
+batch and final saving workflows.
 """
 function _save_results_to_jld2(filepath::String, results::Vector{<:ExperimentResult})
     jldopen(filepath, "w") do file
@@ -80,7 +86,9 @@ function _save_results_to_jld2(filepath::String, results::Vector{<:ExperimentRes
 end
 
 """
-Copia recursivamente o conteúdo de um grupo JLD2 de origem para um destino.
+    _copy_jld2_contents(source, dest)
+
+Recursively copy the contents of a JLD2 group into another group or file.
 """
 function _copy_jld2_contents(source::Union{JLD2.Group, JLD2.JLDFile}, dest::Union{JLD2.Group, JLD2.JLDFile})
     for key in keys(source)
@@ -91,7 +99,7 @@ function _copy_jld2_contents(source::Union{JLD2.Group, JLD2.JLDFile}, dest::Unio
             if obj_source isa JLD2.Group && obj_dest isa JLD2.Group
                 _copy_jld2_contents(obj_source, obj_dest)
             else
-                println("Aviso: A chave '$key' causou um conflito. Sobrescrevendo o destino.")
+                println("Warning: key '$key' caused a conflict. Overwriting destination.")
                 dest[key] = obj_source
             end
         else
@@ -107,7 +115,9 @@ function _copy_jld2_contents(source::Union{JLD2.Group, JLD2.JLDFile}, dest::Unio
 end
 
 """
-Anexa resultados de um arquivo JLD2 temporário para um arquivo final.
+    append_from_jld2(final_filepath, temp_filepath)
+
+Append results from a temporary JLD2 file into a final file.
 """
 function append_from_jld2(final_filepath::String, temp_filepath::String)
     jldopen(final_filepath, "a+") do final_file
@@ -118,26 +128,25 @@ function append_from_jld2(final_filepath::String, temp_filepath::String)
 end
 
 """
-Executa um experimento individual
+    run_single_experiment(config::ExperimentConfig{T}) where T
+
+Run a single experiment and return the corresponding `ExperimentResult`.
 """
 function run_single_experiment(config::ExperimentConfig{T}) where T
     problem_constructor = getfield(MOProblems, config.problem_name)
     problem_instance = problem_constructor()
 
-    # Obter opções do solver
+    # Resolve solver options for the requested solver.
     options = get_solver_options(config.solver_name, config.solver_config)
        
     l, u = problem_instance.bounds
         
-    # # Obter a função do solver e suas opções
-    # solver_function = getfield(MOSolvers, config.solver_name)
-
     try        
         if config.solver_name == :PDFPM
-            # Obter a função do solver e suas opções
+            # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, :PDFPM)
             if config.problem_name == :AAS1 || config.problem_name == :AAS2
-                # Executar o solver usando as matrizes pré-computadas
+                # Execute with precomputed matrices.
                 result = solver_function(x -> safe_evalf_solver(problem_instance, x),
                                         config.data_matrices,
                                         config.delta,
@@ -145,7 +154,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                                         options;
                                         lb = l, ub = u)
             else
-                # Executar o solver usando as matrizes pré-computadas
+                # Execute with precomputed matrices.
                 result = solver_function(x -> safe_evalf_solver(problem_instance, x),
                                         config.data_matrices,
                                         config.delta,
@@ -154,9 +163,9 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                                         lb = l, ub = u)
             end
         elseif config.solver_name == :Dfree
-            # Obter a função do solver e suas opções
+            # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, :PDFPM)
-            # Executar o solver usando as matrizes pré-computadas
+            # Execute with precomputed matrices.
             result = solver_function(x -> safe_evalf_solver(problem_instance, x),
                                      config.data_matrices,
                                      config.delta,
@@ -165,9 +174,9 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                                      lb = l, ub = u)    
         
         elseif config.solver_name == :ProxGrad || config.solver_name == :CondG
-            # Obter a função do solver e suas opções
+            # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, config.solver_name)
-            # Executar o solver usando as matrizes pré-computadas
+            # Execute with precomputed matrices.
             result = solver_function(x -> safe_evalf_solver(problem_instance, x),
                                      x -> safe_evalJf_solver(problem_instance, x),
                                      config.data_matrices,
@@ -175,12 +184,12 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                                      config.initial_point,
                                      options;
                                      lb = l, ub = u)
-            println("Mensagem do solver: ", result.message)
+            println("Solver message: ", result.message)
         else
-            error("Solver $(config.solver_name) não suportado")
+            error("Solver $(config.solver_name) not supported")
         end
 
-        # Checar se o solver retornou um resultado bem-sucedido
+        # Return a result even when the solver reports failure.
         if result.success
             res = ExperimentResult(
                 config.solver_name,
@@ -198,26 +207,30 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
             )
             return res
         else
-            # O solver terminou a execução mas não obteve sucesso
+            # Solver finished but reported failure.
             return create_failed_result(config, problem_instance.nobj)
         end
         
     catch e
-        # Ocorreu um erro durante a execução do solver
+        # Log the failure to aid debugging, then return a failed result.
+        println("Error while running $(config.solver_name) on $(config.problem_name):")
+        println(sprint(showerror, e, catch_backtrace()))
         return create_failed_result(config, problem_instance.nobj)
     end
 end
 
 """
-Executa experimentos com salvamento em lotes para evitar perda de dados.
+    run_experiment_with_batch_saving(configs; batch_size=50, filename_base="benchmark_live")
+
+Run experiments and save results in batches to minimize data loss.
 
 # Arguments
-- `configs`: Vetor de configurações de experimentos.
-- `batch_size`: Número de resultados a serem salvos em cada lote.
-- `filename_base`: Nome base para o arquivo de resultados "vivo".
+- `configs`: Experiment configurations.
+- `batch_size`: Number of results persisted per batch.
+- `filename_base`: Base name for the live results file.
 
 # Returns
-- `Vector{ExperimentResult{T}}`: Vetor com todos os resultados coletados.
+- `Vector{ExperimentResult{T}}`: All collected results.
 """
 function run_experiment_with_batch_saving(
     configs::Vector{ExperimentConfig{T}};
@@ -227,7 +240,7 @@ function run_experiment_with_batch_saving(
     all_results = ExperimentResult{T}[]
     
     if length(configs) <= batch_size
-        println("Total de experimentos ($(length(configs))) não é maior que o tamanho do lote ($batch_size). Nenhum salvamento em lote ocorrerá.")
+        println("Total experiments ($(length(configs))) do not exceed batch size ($batch_size). Batch saving is disabled.")
         for config in configs
             result = run_single_experiment(config)
             push!(all_results, result)
@@ -239,7 +252,7 @@ function run_experiment_with_batch_saving(
     current_batch = ExperimentResult{T}[]
     final_filepath = datadir("sims", "$(filename_base).jld2")
     
-    println("Salvamento em lote ativado. Resultados intermediários serão salvos em: $final_filepath")
+    println("Batch saving enabled. Intermediate results will be saved to: $final_filepath")
     mkpath(datadir("sims"))
 
     for (i, config) in enumerate(configs)
@@ -248,21 +261,21 @@ function run_experiment_with_batch_saving(
         push!(current_batch, result)
 
         if length(current_batch) >= batch_size || i == length(configs)
-            println("\nProcessando lote. Salvando $(length(current_batch)) resultados...")
+            println("\nProcessing batch. Saving $(length(current_batch)) results...")
             
             temp_filename = "temp_batch_$(randstring(8)).jld2"
             temp_filepath = joinpath(datadir("sims"), temp_filename)
             
             try
                 _save_results_to_jld2(temp_filepath, current_batch)
-                println("Lote temporário salvo em: $temp_filepath")
+                println("Temporary batch saved to: $temp_filepath")
 
                 append_from_jld2(final_filepath, temp_filepath)
-                println("Lote anexado a: $final_filepath")
+                println("Batch appended to: $final_filepath")
             finally
                 if isfile(temp_filepath)
                     rm(temp_filepath)
-                    println("Arquivo temporário removido.")
+                    println("Temporary file removed.")
                 end
             end
             
@@ -270,12 +283,14 @@ function run_experiment_with_batch_saving(
         end
     end
 
-    println("\nExecução de experimentos em lote concluída.")
+    println("\nBatch experiment run complete.")
     return all_results
 end
 
 """
-Cria resultado para experimento que falhou
+    create_failed_result(config, nobj)
+
+Build an `ExperimentResult` for a failed run.
 """
 function create_failed_result(config::ExperimentConfig{T}, nobj::Int) where T
     return ExperimentResult{T}(
@@ -294,14 +309,19 @@ function create_failed_result(config::ExperimentConfig{T}, nobj::Int) where T
     )
 end
 
+"""
+    run_experiment(configs::Vector{ExperimentConfig{T}}) where T
+
+Run all experiments in `configs` and return the collected results.
+"""
 function run_experiment(configs::Vector{ExperimentConfig{T}}) where T
     all_results = ExperimentResult{T}[]
     
-    println("Executando $(length(configs)) experimentos")
+    println("Running $(length(configs)) experiments")
     
     for config in configs
         result = run_single_experiment(config)
-        # Adicionar aos resultados totais
+        # Add to the aggregated results.
         push!(all_results, result)
     end
     
