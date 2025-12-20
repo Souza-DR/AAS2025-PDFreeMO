@@ -145,15 +145,23 @@ function extract_objective_space_data(problem; grid_points=100)
     return f1_vals, f2_vals
 end
 
+"""
+    _ensure_cairomakie_available()
+
+Ensure CairoMakie is available when high-quality plot output is requested.
+
+This helper lazily loads CairoMakie and throws a clear, actionable error if the
+package is missing from the active environment.
+"""
 function _ensure_cairomakie_available()
     try
         @eval using CairoMakie
     catch e
         error(
-            "quality = \"high\" requer CairoMakie no ambiente.\n" *
-            "Instale com:\n" *
+            "quality = \"high\" requires CairoMakie in the active environment.\n" *
+            "Install it with:\n" *
             "  julia --project -e 'using Pkg; Pkg.add(\"CairoMakie\")'\n\n" *
-            "Erro original: $(e)",
+            "Original error: $(e)",
         )
     end
     return nothing
