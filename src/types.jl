@@ -1,57 +1,57 @@
 """
     ExperimentResult
 
-Armazena os parâmetros de entrada e os resultados de uma única execução 
-de um solver em um problema de otimização.
+Container for the inputs and results of a single solver run on an optimization
+problem.
 
 # Fields
-- `solver_name::Symbol`: Nome do solver utilizado.
-- `problem_name::Symbol`: Nome do problema otimizado.
-- `run_id::Int`: Identificador da execução (e.g., de 1 a 200 para cada ponto inicial).
-- `delta::T`: Valor do parâmetro de robustez delta.
-- `initial_point::Vector{T}`: Ponto inicial utilizado.
-- `success::Bool`: true` se o solver executou e retornou um resultado com sucesso, `false` caso contrário
-- `iter::Int`: Número total de iterações que o solver executou.
-- `n_f_evals::Int`: Número total de avaliações da função objetivo.
-- `n_Jf_evals::Int`: Número total de avaliações do Jacobiano (gradientes).
-- `total_time::Float64`: Tempo de execução em segundos.
-- `F_init::Vector{T}`: Vetor com o valor inicial da função objetivo.
-- `final_objective_value::Vector{T}`: Vetor com o valor final da função objetivo.
+- `solver_name::Symbol`: Solver identifier.
+- `problem_name::Symbol`: Problem identifier.
+- `run_id::Int`: Run identifier (e.g., 1 to 200 for each starting point).
+- `delta::T`: Robustness parameter value.
+- `initial_point::Vector{T}`: Starting point used by the solver.
+- `success::Bool`: Whether the solver completed successfully.
+- `iter::Int`: Total number of solver iterations.
+- `n_f_evals::Int`: Total number of objective function evaluations.
+- `n_Jf_evals::Int`: Total number of Jacobian evaluations.
+- `total_time::Float64`: Elapsed runtime in seconds.
+- `F_init::Vector{T}`: Initial objective vector value.
+- `final_objective_value::Vector{T}`: Final objective vector value.
 
 """
 struct ExperimentResult{T<:Real}
-    # Parâmetros de entrada da instância
+    # Input parameters
     solver_name::Symbol
     problem_name::Symbol
     run_id::Int
     delta::T
     initial_point::Vector{T}
 
-    # Métricas de resultado
+    # Output metrics
     success::Bool
     iter::Int
     n_f_evals::Int
     n_Jf_evals::Int
     total_time::Float64
-    F_init ::Vector{T}
+    F_init::Vector{T}
     final_objective_value::Vector{T}
 end
 
 """
     ExperimentConfig{T}
 
-Armazena todos os parâmetros necessários para executar uma única instância de um
-experimento de forma reprodutível. A struct garante a consistência dos tipos
-e a validação dos nomes.
+Container for all parameters required to run a single experiment instance in a
+reproducible way. The struct enforces consistent types and normalizes names.
 
 # Fields
-- `solver_name::Symbol`: Nome do solver a ser utilizado.
-- `problem_name::Symbol`: Nome do problema a ser resolvido.
-- `run_id::Int`: Identificador numérico da execução (ex: de 1 a 100).
-- `delta::T`: Valor do parâmetro de robustez.
-- `initial_point::Vector{T}`: Ponto inicial para a otimização.
-- `solver_config::SolverConfiguration{T}`: Objeto contendo as configurações (comuns e específicas) do solver.
-- `data_matrices::Vector{Matrix{T}}`: Coleção de matrizes `A` pré-computadas e **fixas** para o par (problema, δ), usadas na parte não diferenciável `H`.
+- `solver_name::Symbol`: Solver identifier.
+- `problem_name::Symbol`: Problem identifier.
+- `run_id::Int`: Run identifier (e.g., 1 to 100).
+- `delta::T`: Robustness parameter value.
+- `initial_point::Vector{T}`: Starting point for the optimization.
+- `solver_config::SolverConfiguration{T}`: Solver configuration (common and specific settings).
+- `data_matrices::Vector{Matrix{T}}`: Precomputed `A` matrices fixed for the pair
+  (problem, delta), used by the nondifferentiable term `H`.
 """
 struct ExperimentConfig{T<:Real}
     solver_name::Symbol
@@ -60,31 +60,43 @@ struct ExperimentConfig{T<:Real}
     delta::T
     initial_point::Vector{T}
     solver_config::SolverConfiguration{T}
-    # Matrizes de dados A fixas para (problema, δ)
+    # Fixed A matrices for (problem, delta)
     data_matrices::Vector{Matrix{T}}
     
-    # Construtor interno com validação
+    # Inner constructor with normalization/conversion
     function ExperimentConfig{T}(
         solver_name, problem_name, run_id, delta, 
         initial_point, solver_config, data_matrices
     ) where T<:Real
         
-        # Garantir que problem_name e solver_name são Symbol
+        # Normalize names to Symbol.
         problem_sym = problem_name isa Symbol ? problem_name : Symbol(string(problem_name))
         solver_sym = solver_name isa Symbol ? solver_name : Symbol(string(solver_name))
         
-        # Validar tipos
+        # Convert to the expected concrete types.
         delta_val = T(delta)
         run_id_val = Int(run_id)
         initial_point_val = Vector{T}(initial_point)
         data_matrices_val = Vector{Matrix{T}}(data_matrices)
+
+        if isempty(initial_point_val)
+            error("initial_point must be non-empty.")
+        end
+        if !isempty(data_matrices_val)
+            ref_size = size(data_matrices_val[1])
+            for (i, mat) in enumerate(data_matrices_val)
+                if size(mat) != ref_size
+                    error("data_matrices must all have the same size; mismatch at index $(i).")
+                end
+            end
+        end
         
         new{T}(solver_sym, problem_sym, run_id_val, delta_val, 
                 initial_point_val, solver_config, data_matrices_val)
     end
 end
 
-# Construtor externo conveniente
+# Convenience outer constructor.
 function ExperimentConfig(
     solver_name, problem_name, run_id, delta, 
     initial_point, solver_config, data_matrices
