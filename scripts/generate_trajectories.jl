@@ -217,20 +217,6 @@ function _create_with_cairomakie(deltas, traj_dict, solver_name, filename_base, 
     return results
 end
 
-function _ensure_cairomakie_available()
-    try
-        @eval using CairoMakie
-    catch e
-        error(
-            "quality = \"high\" requer CairoMakie no ambiente.\n" *
-            "Instale com:\n" *
-            "  julia --project -e 'using Pkg; Pkg.add(\"CairoMakie\")'\n\n" *
-            "Erro original: $(e)",
-        )
-    end
-    return nothing
-end
-
 """
     create_all_trajectory_plots(filepath)
 

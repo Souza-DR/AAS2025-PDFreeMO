@@ -285,20 +285,6 @@ function _create_with_cairomakie(deltas, final_points_dict, solver_name, filenam
     return save_figure(fig, output_name, base_dir)
 end
 
-function _ensure_cairomakie_available()
-    try
-        @eval using CairoMakie
-    catch e
-        error(
-            "quality = \"high\" requer CairoMakie no ambiente.\n" *
-            "Instale com:\n" *
-            "  julia --project -e 'using Pkg; Pkg.add(\"CairoMakie\")'\n\n" *
-            "Erro original: $(e)",
-        )
-    end
-    return nothing
-end
-
 """
 Cria plots comparativos de deltas para todos os problemas biobjetivos disponíveis
 """

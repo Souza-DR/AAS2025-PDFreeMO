@@ -22,6 +22,7 @@ module AAS2025PDFreeMO
     export is_biobjective_problem, list_biobjective_problems, filter_solvers
     export extract_performance_data, extract_problem_data
     export list_solvers_for_problem
+    export _ensure_cairomakie_available
     
     # Funções de plotagem
     export extract_objective_space_data
