@@ -1,8 +1,19 @@
 """
-Estrutura para armazenar parâmetros comuns a todos os solvers
+    CommonSolverOptions{T}
+
+Container for solver-agnostic configuration parameters.
+
+# Fields
+- `verbose::Int`: Verbosity level expected by the solver.
+- `max_iter::Int`: Maximum number of iterations.
+- `opt_tol::T`: Optimality tolerance.
+- `ftol::T`: Function tolerance.
+- `max_time::T`: Maximum wall-clock time in seconds.
+- `print_interval::Int`: Logging interval in iterations.
+- `store_trace::Bool`: Whether to store solver trace.
+- `stop_criteria::Symbol`: Termination criterion identifier.
 """
 struct CommonSolverOptions{T<:Real}
-    # Parâmetros comuns
     verbose::Int
     max_iter::Int
     opt_tol::T
@@ -12,7 +23,7 @@ struct CommonSolverOptions{T<:Real}
     store_trace::Bool
     stop_criteria::Symbol
     
-    # Constructor com valores padrão
+    # Inner constructor with defaults.
     function CommonSolverOptions{T}(;
         verbose::Integer = 0,
         max_iter::Integer = 100,
@@ -27,17 +38,27 @@ struct CommonSolverOptions{T<:Real}
     end
 end
 
-# Constructor conveniente
+# Convenience outer constructor.
 CommonSolverOptions(; kwargs...) = CommonSolverOptions{Float64}(; kwargs...)
 
 """
-Estrutura para parâmetros específicos de cada solver
+    SolverSpecificOptions{T}
+
+Container for solver-specific configuration parameters. Use `nothing` to keep
+the solver's default value.
+
+# Fields
+- `mu::Union{T, Nothing}`: ProxGrad regularization parameter.
+- `epsilon::Union{T, Nothing}`: PDFPM tolerance parameter.
+- `sigma::Union{T, Nothing}`: PDFPM penalty parameter.
+- `alpha::Union{T, Nothing}`: PDFPM step-size parameter.
+- `max_subproblem_iter::Union{Int, Nothing}`: PDFPM subproblem iteration cap.
 """
 struct SolverSpecificOptions{T<:Real}
-    # ProxGrad específicos
+    # ProxGrad specific
     mu::Union{T, Nothing}
     
-    # PDFPM específicos  
+    # PDFPM specific  
     epsilon::Union{T, Nothing}
     sigma::Union{T, Nothing}
     alpha::Union{T, Nothing}
@@ -57,7 +78,10 @@ end
 SolverSpecificOptions(; kwargs...) = SolverSpecificOptions{Float64}(; kwargs...)
 
 """
-Configuração completa para um solver
+    SolverConfiguration{T}
+
+Bundled configuration for a solver, composed of common and solver-specific
+options.
 """
 struct SolverConfiguration{T<:Real}
     common_options::CommonSolverOptions{T}
@@ -69,18 +93,16 @@ function SolverConfiguration{T}(common::CommonSolverOptions{T}; kwargs...) where
     return SolverConfiguration(common, specific)
 end
 
-# =======================================================================================
-# FUNÇÕES DE MAPEAMENTO PARA CADA SOLVER
-# =======================================================================================
-
 """
-Converte configuração padronizada para ProxGrad_options
+    to_proxgrad_options(config::SolverConfiguration{T}) where T
+
+Convert a normalized configuration into `ProxGrad_options`.
 """
 function to_proxgrad_options(config::SolverConfiguration{T}) where T
     common = config.common_options
     specific = config.specific_options
     
-    # Usar valor específico se fornecido, senão usar padrão
+    # Use the provided value or fall back to a sensible default.
     mu_val = isnothing(specific.mu) ? T(1.0) : specific.mu
     
     return ProxGrad_options(
@@ -97,13 +119,15 @@ function to_proxgrad_options(config::SolverConfiguration{T}) where T
 end
 
 """
-Converte configuração padronizada para PDFPM_options
+    to_pdfpm_options(config::SolverConfiguration{T}) where T
+
+Convert a normalized configuration into `PDFPM_options`.
 """
 function to_pdfpm_options(config::SolverConfiguration{T}) where T
     common = config.common_options
     specific = config.specific_options
     
-    # Usar valores específicos se fornecidos, senão usar padrões
+    # Use provided values or fall back to sensible defaults.
     epsilon_val = isnothing(specific.epsilon) ? T(1e-4) : specific.epsilon
     sigma_val = isnothing(specific.sigma) ? T(1.0) : specific.sigma
     alpha_val = isnothing(specific.alpha) ? T(0.1) : specific.alpha
@@ -126,7 +150,9 @@ function to_pdfpm_options(config::SolverConfiguration{T}) where T
 end
 
 """
-Converte configuração padronizada para CondG_options
+    to_condg_options(config::SolverConfiguration{T}) where T
+
+Convert a normalized configuration into `CondG_options`.
 """
 function to_condg_options(config::SolverConfiguration{T}) where T
     common = config.common_options
@@ -146,21 +172,20 @@ end
 """
     get_solver_options(solver_name::Symbol, config::SolverConfiguration{T}) where T
 
-Converte um `SolverConfiguration` genérico para a `struct` de opções específica 
-do solver (`PDFPM_options`, `ProxGrad_options`, etc.) exigida pelo pacote `MOSolvers.jl`.
+Convert a generic `SolverConfiguration` into the solver-specific options
+struct (e.g., `PDFPM_options`, `ProxGrad_options`) required by `MOSolvers.jl`.
 
-Atua como um dispatcher, chamando a função de conversão apropriada com base no 
-`solver_name`.
+Dispatches to the appropriate conversion function based on `solver_name`.
 
 # Arguments
-- `solver_name::Symbol`: O nome do solver (e.g., `:PDFPM`).
-- `config::SolverConfiguration{T}`: A configuração padronizada do solver.
+- `solver_name::Symbol`: Solver name (e.g., `:PDFPM`).
+- `config::SolverConfiguration{T}`: Normalized solver configuration.
 
 # Returns
-- Uma `struct` de opções específica do `MOSolvers.jl` (e.g., `PDFPM_options`).
+- A solver-specific options struct from `MOSolvers.jl` (e.g., `PDFPM_options`).
 
 # Throws
-- `error`: Se o `solver_name` não for reconhecido.
+- `error`: If `solver_name` is not recognized.
 """
 function get_solver_options(solver_name::Symbol, config::SolverConfiguration{T}) where T
     if solver_name == :ProxGrad
@@ -170,6 +195,6 @@ function get_solver_options(solver_name::Symbol, config::SolverConfiguration{T})
     elseif solver_name == :CondG
         return to_condg_options(config)
     else
-        error("Solver desconhecido: $solver_name")
+        error("Unknown solver: $solver_name")
     end
 end
