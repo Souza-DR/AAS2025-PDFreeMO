@@ -1,33 +1,34 @@
 """
-Módulo de análise de dados para experimentos de otimização multiobjetivo.
+Data analysis utilities for multiobjective optimization experiments.
 
-Este módulo fornece funções utilitárias para carregar, filtrar e analisar dados
-de experimentos salvos em arquivos JLD2.
+Provides helper functions to load, filter, and inspect results stored in JLD2
+files.
 """
 
+using DrWatson
 using JLD2
 using MOProblems
 
 # ========================================================================================
-# FUNÇÕES DE LISTAGEM E DESCOBERTA DE DADOS
+# DATA DISCOVERY HELPERS
 # ========================================================================================
 
 """
     list_jld2_files()
 
-Lista todos os arquivos JLD2 disponíveis no diretório de simulações.
+List all JLD2 files available in the simulation directory managed by DrWatson.
 
 # Returns
-- `Vector{String}`: Lista de nomes de arquivos JLD2 encontrados
+- `Vector{String}`: File names (not paths) found under `data/sims/`.
 
 # Note
-Esta função procura arquivos no diretório `data/sims/` gerenciado pelo DrWatson.
+Files are expected to live in `data/sims/`, the default DrWatson data folder.
 """
 function list_jld2_files()
     sims_dir = datadir("sims")
     
     if !isdir(sims_dir)
-        println("Diretório de simulações não encontrado: $sims_dir")
+        println("Simulation directory not found: $sims_dir")
         return String[]
     end
     
@@ -35,11 +36,11 @@ function list_jld2_files()
     jld2_files = filter(file -> endswith(file, ".jld2"), files)
     
     if isempty(jld2_files)
-        println("Nenhum arquivo JLD2 encontrado em: $sims_dir")
+        println("No JLD2 files found in: $sims_dir")
         return String[]
     end
     
-    println("Arquivos JLD2 encontrados:")
+    println("Found JLD2 files:")
     for (i, file) in enumerate(jld2_files)
         println("$i. $file")
     end
@@ -50,18 +51,17 @@ end
 """
     list_solvers_for_problem(filepath::String, problem_name::Symbol)
 
-Lista todos os solvers disponíveis para um problema específico em um arquivo JLD2.
+List every solver that contains data for a specific problem in a JLD2 file.
 
 # Arguments
-- `filepath::String`: Caminho completo para o arquivo JLD2
-- `problem_name::Symbol`: Nome do problema para verificar
+- `filepath::String`: Absolute path to the JLD2 file.
+- `problem_name::Symbol`: Name of the problem to inspect.
 
 # Returns
-- `Vector{String}`: Lista de solvers que têm dados para o problema
+- `Vector{String}`: Solver names that include the requested problem.
 
 # Note
-Esta função navega pela estrutura do arquivo JLD2 e verifica cada solver.
-A estrutura é: solver/problem/run_id
+The expected hierarchy inside the JLD2 file is `solver/problem/run_id`.
 """
 function list_solvers_for_problem(filepath::String, problem_name::Symbol)
     solvers = String[]
@@ -78,46 +78,55 @@ end
 """
     is_biobjective_problem(problem_name::Symbol)
 
-Verifica se um problema é biobjetivo (tem exatamente 2 objetivos).
+Check whether a problem defines exactly two objectives.
 
 # Arguments
-- `problem_name::Symbol`: Nome do problema a ser verificado
+- `problem_name::Symbol`: Problem name to inspect.
 
 # Returns
-- `Bool`: `true` se o problema é biobjetivo, `false` caso contrário
+- `Bool`: `true` when the problem is biobjective, `false` otherwise.
 
 # Note
-Esta função tenta instanciar o problema usando MOProblems e verifica o número
-de objetivos. Retorna `false` se houver erro na instanciação.
+Returns `false` when the problem constructor is not present in `MOProblems`.
+Other instantiation errors are logged and rethrown to surface unexpected issues.
 """
 function is_biobjective_problem(problem_name::Symbol)
+    problem_constructor = try
+        getfield(MOProblems, problem_name)
+    catch e
+        if e isa UndefVarError && e.var == problem_name
+            @warn "Problem not found in MOProblems; treating as non-biobjective." problem_name
+            return false
+        end
+        rethrow(e)
+    end
+
     try
-        problem_constructor = getfield(MOProblems, problem_name)
         problem_instance = problem_constructor()
         return problem_instance.nobj == 2
     catch e
-        println("Erro ao verificar problema $problem_name: $e")
-        return false
+        @error "Failed to instantiate problem for biobjective check" problem_name exception = (e, catch_backtrace())
+        rethrow(e)
     end
 end
 
 """
     list_biobjective_problems(filepath::String)
 
-Lista todos os problemas biobjetivos disponíveis em um arquivo JLD2.
+List all biobjective problems present in a JLD2 file.
 
 # Arguments
-- `filepath::String`: Caminho completo para o arquivo JLD2
+- `filepath::String`: Absolute path to the JLD2 file.
 
 # Returns
-- `Vector{Symbol}`: Lista de problemas biobjetivos encontrados
+- `Vector{Symbol}`: Biobjective problems discovered in the file.
 
 # Note
-Esta função navega pela estrutura do arquivo JLD2 e verifica cada problema
-encontrado para determinar se é biobjetivo. A estrutura é: solver/problem/run_id
+Traverses the JLD2 structure to determine whether each problem is biobjective.
+The expected hierarchy is `solver/problem/run_id`.
 """
 function list_biobjective_problems(filepath::String)
-    println("\nProcurando problemas biobjetivos no arquivo: $(basename(filepath))")
+    println("\nScanning for biobjective problems in: $(basename(filepath))")
     
     biobjective_problems = Symbol[]
     
@@ -129,7 +138,7 @@ function list_biobjective_problems(filepath::String)
             for problem_name in keys(solver_group)
                 problem_sym = Symbol(problem_name)
                 
-                # Verificar se já não adicionamos este problema
+                # Avoid duplicates when multiple solvers include the same problem
                 if !(problem_sym in biobjective_problems)
                     if is_biobjective_problem(problem_sym)
                         push!(biobjective_problems, problem_sym)
@@ -140,9 +149,9 @@ function list_biobjective_problems(filepath::String)
     end
     
     if isempty(biobjective_problems)
-        println("Nenhum problema biobjetivo encontrado no arquivo.")
+        println("No biobjective problems found in the file.")
     else
-        println("Problemas biobjetivos encontrados: $biobjective_problems")
+        println("Biobjective problems found: $biobjective_problems")
     end
     
     return biobjective_problems
@@ -151,71 +160,70 @@ end
 """
     filter_solvers(available_solvers::Vector{String}, target_solvers::Vector{String})
 
-Filtra uma lista de solvers disponíveis para incluir apenas os solvers desejados.
+Filter the available solvers to keep only the requested names.
 
 # Arguments
-- `available_solvers::Vector{String}`: Lista de solvers disponíveis no arquivo
-- `target_solvers::Vector{String}`: Lista de solvers que se deseja analisar
+- `available_solvers::Vector{String}`: Solvers found in the JLD2 file.
+- `target_solvers::Vector{String}`: Solvers requested for analysis.
 
 # Returns
-- `Vector{String}`: Lista filtrada de solvers para análise
+- `Vector{String}`: Solvers that will be analyzed.
 
 # Note
-Esta função é útil para garantir que apenas solvers específicos sejam analisados,
-mesmo que o arquivo contenha dados de outros solvers.
+Use this helper to restrict analysis to specific solvers even when the JLD2 file
+contains additional data.
 """
 function filter_solvers(available_solvers::Vector{String}, target_solvers::Vector{String})
     solvers_to_analyze = filter(solver -> solver in target_solvers, available_solvers)
     
     if isempty(solvers_to_analyze)
-        println("Nenhum dos solvers desejados encontrado no arquivo.")
-        println("Solvers disponíveis: $available_solvers")
-        println("Solvers desejados: $target_solvers")
+        println("None of the requested solvers were found in the file.")
+        println("Available solvers: $available_solvers")
+        println("Requested solvers: $target_solvers")
     else
-        println("Solvers para análise: $solvers_to_analyze")
+        println("Solvers selected for analysis: $solvers_to_analyze")
     end
     
     return solvers_to_analyze
 end
 
 # ========================================================================================
-# FUNÇÕES DE EXTRAÇÃO DE DADOS ESPECÍFICOS
+# DATA EXTRACTION HELPERS
 # ========================================================================================
 
 """
     extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
 
-Extrai dados de performance de um arquivo JLD2 para criar uma matriz de performance.
+Build a performance matrix from a JLD2 file for the requested metric and solvers.
 
 # Arguments
-- `filepath::String`: Caminho completo para o arquivo JLD2
-- `metric::String`: Nome da métrica a ser extraída (e.g., "iter", "total_time")
-- `target_solvers::Vector{String}`: Lista de solvers para incluir na análise
+- `filepath::String`: Absolute path to the JLD2 file.
+- `metric::String`: Metric name to extract (e.g. `"iter"`, `"total_time"`).
+- `target_solvers::Vector{String}`: Solvers to include as columns in the matrix.
 
 # Returns
-- `Tuple{Matrix{Float64}, Vector{Tuple{String, Float64, Int}}}`: 
-  - Matriz de performance (instâncias × solvers)
-  - Lista de informações das instâncias (problema, delta, run_id)
+- `Matrix{Float64}`: Performance matrix (instances × solvers) with `NaN`
+  indicating failed runs or missing values.
+- `Vector{Tuple{String, Float64, Int}}`: Row metadata as `(problem, delta, run_id)`.
 
-# Note
-Esta função cria uma matriz onde cada linha representa uma instância (problema, delta, run_id)
-e cada coluna representa um solver. Valores NaN indicam execuções falhadas ou dados ausentes.
-A estrutura do arquivo esperada é: `solver/problem/delta/run_id`.
+# Notes
+- The expected hierarchy is `solver/problem/delta/run_id`.
+- Only runs flagged as `success` and containing the requested metric are recorded.
 """
 function extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
-    println("\nExtraindo dados de performance do arquivo: $(basename(filepath))")
-    println("Métrica: $metric")
+    println("\nExtracting performance data from: $(basename(filepath))")
+    println("Metric: $metric")
 
     jldopen(filepath, "r") do file
         available_solvers = collect(keys(file))
         solvers_to_analyze = filter_solvers(available_solvers, target_solvers)
         
         if isempty(solvers_to_analyze)
-            println("Nenhum dos solvers desejados foi encontrado no arquivo.")
+            println("None of the requested solvers were found in the file.")
             return Matrix{Float64}(undef, 0, 0), []
         end
 
-        # Descobrir todas as instâncias únicas (problema, delta, run_id)
+        # Collect every unique instance (problem, delta, run_id)
         instance_info = Set{Tuple{String, Float64, Int}}()
         for solver in solvers_to_analyze
             # if !haskey(file, solver); continue; end
@@ -240,16 +248,16 @@ function extract_performance_data(filepath::String, metric::String, target_solve
         sorted_instance_info = sort(collect(instance_info), by = x -> (x[1], x[2], x[3]))
         
         if isempty(sorted_instance_info)
-            println("Nenhuma instância de resultado encontrada no arquivo.")
+            println("No result instances found in the file.")
             return Matrix{Float64}(undef, 0, 0), []
         end
 
-        println("Total de instâncias encontradas: $(length(sorted_instance_info))")
+        println("Total instances found: $(length(sorted_instance_info))")
 
-        # Criar matriz de performance (instâncias × solvers)
+        # Build performance matrix (instances × solvers)
         perf_matrix = fill(NaN, length(sorted_instance_info), length(solvers_to_analyze))
         
-        # Preencher a matriz
+        # Populate the matrix
         for (instance_idx, (problem, delta, run_id)) in enumerate(sorted_instance_info)
             for (solver_idx, solver) in enumerate(solvers_to_analyze)
                 delta_str = replace(string(delta), "." => "-")
@@ -278,69 +286,71 @@ end
 """
     extract_problem_data(filepath::String, problem_name::Symbol, solver_name::String)
 
-Extrai dados de um arquivo JLD2 para um problema e solver específicos, organizando por delta.
+Extract the final objective values for a specific problem and solver, grouped by
+delta.
 
 # Arguments
-- `filepath::String`: Caminho completo para o arquivo JLD2
-- `problem_name::Symbol`: Nome do problema para extrair dados
-- `solver_name::String`: Nome do solver para extrair dados
+- `filepath::String`: Absolute path to the JLD2 file.
+- `problem_name::Symbol`: Problem name to extract.
+- `solver_name::String`: Solver name to extract.
 
 # Returns
 - `Tuple{Vector{Float64}, Dict{Float64, Vector{Vector{Float64}}}}`:
-  - Lista ordenada de deltas encontrados
-  - Dicionário onde a chave é o delta e o valor é um vetor de pontos finais
+  - Sorted list of delta values present in the file.
+  - Dictionary keyed by delta, with each entry containing the final objective
+    points for successful runs.
 
 # Note
-Esta função é específica para análise de problemas biobjetivos, onde cada ponto final
-é um vetor [f₁, f₂]. Os dados são organizados por delta para facilitar comparações.
-A estrutura do arquivo é: solver/problem/delta/run_id
+Designed for biobjective problems where each final point is a vector `[f1, f2]`.
+Data are organized by `delta` to simplify comparisons. The expected hierarchy is
+`solver/problem/delta/run_id`.
 """
 function extract_problem_data(filepath::String, problem_name::Symbol, solver_name::String)
-    println("\nExtraindo dados para o problema: $problem_name, solver: $solver_name")
+    println("\nExtracting data for problem: $problem_name, solver: $solver_name")
     
-    # Estrutura para armazenar os dados organizados por delta
+    # Storage for values organized by delta
     deltas = Set{Float64}()
     final_points_dict = Dict{Float64, Vector{Vector{Float64}}}()
     
     jldopen(filepath, "r") do file
-        # Verificar se o solver existe no arquivo
+        # Verify the solver exists in the file
         if !haskey(file, solver_name)
-            println("Aviso: Solver '$solver_name' não encontrado no arquivo.")
+            println("Warning: solver '$solver_name' not found in the file.")
             return Float64[], Dict{Float64, Vector{Vector{Float64}}}()
         end
         
         solver_group = file[solver_name]
         
-        # Verificar se o problema existe para este solver
+        # Verify the problem exists for this solver
         if haskey(solver_group, string(problem_name))
             problem_group = solver_group[string(problem_name)]
             
-            # Navegar pela estrutura: solver/problem/delta/run_id
+            # Navigate structure: solver/problem/delta/run_id
             for delta_key in keys(problem_group)
                 if startswith(delta_key, "delta_")
-                    # Extrair valor do delta
+                    # Extract delta value
                     delta_str = replace(delta_key, "delta_" => "")
                     delta_val = parse(Float64, replace(delta_str, "-" => "."))
                     
-                    # Obter run_ids deste delta
+                    # Collect run_ids for this delta
                     delta_group = problem_group[delta_key]
                     for run_key in keys(delta_group)
                         if startswith(run_key, "run_")
                             result = delta_group[run_key]
                             
-                            # Verificar se a execução foi bem-sucedida
+                            # Record only successful runs
                             if result.success
                                 final_point = result.final_objective_value
                                 
-                                # Adicionar delta à lista
+                                # Track the delta value
                                 push!(deltas, delta_val)
                                 
-                                # Inicializar lista de pontos para este delta se necessário
+                                # Initialize storage for this delta if needed
                                 if !haskey(final_points_dict, delta_val)
                                     final_points_dict[delta_val] = Vector{Vector{Float64}}()
                                 end
                                 
-                                # Adicionar ponto final à lista
+                                # Append final point
                                 push!(final_points_dict[delta_val], final_point)
                             end
                         end
@@ -348,17 +358,17 @@ function extract_problem_data(filepath::String, problem_name::Symbol, solver_nam
                 end
             end
         else
-            println("Aviso: Problema '$problem_name' não encontrado para o solver '$solver_name'.")
+            println("Warning: problem '$problem_name' not found for solver '$solver_name'.")
         end
     end
     
-    # Converter Set para Vector ordenado
+    # Sort collected delta values
     deltas_vector = sort(collect(deltas))
     
-    println("Deltas encontrados: $deltas_vector")
+    println("Deltas found: $deltas_vector")
     if !isempty(deltas_vector)
         for delta in deltas_vector
-            println("  Delta $delta: $(length(final_points_dict[delta])) pontos")
+            println("  Delta $delta: $(length(final_points_dict[delta])) points")
         end
     end
     
