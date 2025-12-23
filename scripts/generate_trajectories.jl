@@ -1,8 +1,7 @@
-# This script generates and saves trajectory plots (initial vs. final objective
-# values) for bi-objective problems. The plots are saved as PDF in
+# Generate and save trajectory plots (initial vs. final objective values) for
+# bi-objective problems. Outputs are PDFs under
 # `data/plots/trajectories/PROBLEM_NAME/DELTA_VALUE/pdf`.
-# The workflow is interactive – the user selects the JLD2 data file and the
-# problem(s) to analyse.
+# The workflow is interactive: choose the JLD2 data file and problem(s) to analyze.
 
 using DrWatson
 @quickactivate "AAS2025-PDFreeMO"
@@ -19,17 +18,16 @@ using .AAS2025PDFreeMO
 """
     quality
 
-Controla qual biblioteca de plot será usada:
+Controls which plotting backend to use:
 
-- `"normal"` (padrão): usa `Plots.jl` (mais leve para instalar) e salva em PDF.
-- `"high"`: usa `CairoMakie.jl` e salva em PDF (alta qualidade).
+- `"normal"` (default): uses `Plots.jl` (lighter dependency footprint) and saves PDF.
+- `"high"`: uses `CairoMakie.jl` for higher-quality PDF output.
 
-Se você colocar `quality = "high"`, garanta que `CairoMakie` está no seu ambiente:
+If you set `quality = "high"`, ensure `CairoMakie` is available in your environment:
 
+```
 julia --project -e 'using Pkg; Pkg.add("CairoMakie")'
-
-ou no REPL:
-pkg> add CairoMakie
+```
 """
 const quality::String = "normal"
 
@@ -144,12 +142,12 @@ function create_and_save_trajectory_plots(filepath::String, problem_name::Symbol
         _ensure_cairomakie_available()
         return _create_with_cairomakie(deltas, traj_dict, solver_name, filename_base, problem_name)
     else
-        error("quality inválido: $(quality). Use \"normal\" ou \"high\".")
+        error("Invalid quality setting: $(quality). Use \"normal\" or \"high\".")
     end
 end
 
 function _create_with_plots(deltas, traj_dict, solver_name, filename_base, problem_name)
-    gr()  # backend leve com suporte a PDF
+    gr()  # lightweight backend with PDF support
 
     results = Dict{Float64, Dict{Symbol, String}}()
     for delta in deltas
@@ -252,6 +250,10 @@ end
 # ---------------------------------------------------------------------------
 # Interactive entry-point
 # ---------------------------------------------------------------------------
+"""
+Interactive CLI to select a JLD2 file and bi-objective problem(s), then generate
+trajectory plots for all available solvers.
+"""
 function main()
     println("=== Trajectory Plot Generator ===")
     jld2_files = list_jld2_files()
