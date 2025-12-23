@@ -2,50 +2,48 @@ using DrWatson
 @quickactivate "AAS2025-PDFreeMO"
 using JLD2
 using Plots
-# using CairoMakie  # (opcional) backend com suporte a PDF de alta qualidade (ver `quality = "high"`)
+# using CairoMakie  # (optional) high-quality PDF backend (see `quality = "high"`)
 using MOProblems
 
-# Incluir o módulo para ter acesso às funções de análise
+# Load the local module for analysis utilities
 include(srcdir("AAS2025PDFreeMO.jl"))
 using .AAS2025PDFreeMO
 
 # ========================================================================================
-# CONFIGURAÇÃO
+# CONFIGURATION
 # ========================================================================================
 
 """
     quality
 
-Controla qual biblioteca de plot será usada:
+Controls which plotting backend to use:
 
-- `"normal"` (padrão): usa `Plots.jl` (mais leve para instalar) e salva em `PDF`.
-- `"high"`: usa `CairoMakie.jl` e salva em `PDF` (alta qualidade).
+- `"normal"` (default): uses `Plots.jl` (lighter dependency footprint) and saves PDF.
+- `"high"`: uses `CairoMakie.jl` and saves PDF (higher quality).
 
-Se você colocar `quality = "high"`, garanta que `CairoMakie` está no seu ambiente:
+If you choose `quality = "high"`, ensure `CairoMakie` is available in your environment:
 
 julia --project -e 'using Pkg; Pkg.add("CairoMakie")'
-
-ou no REPL:
-pkg> add CairoMakie
 """
 const quality::String = "normal"
 
 # ========================================================================================
-# FUNÇÕES AUXILIARES
+# HELPER FUNCTIONS
 # ========================================================================================
 
 """
     save_figure(plot_or_fig, name::String, base_dir::String)
 
-Saves the figure/plot as PDF in a format-specific subdirectory with a name based on `name`.
+Save the figure/plot as PDF under a format-specific subdirectory with a name based
+on `name`.
 
 # Arguments
-- `plot_or_fig`: Plot/Figure to save
-- `name::String`: Base name for the file
-- `base_dir::String`: Base directory where format-specific subdirectories will be created
+- `plot_or_fig`: Plot or figure to save.
+- `name::String`: Base name for the file.
+- `base_dir::String`: Base directory where format-specific subdirectories are created.
 
 # Returns
-- `Dict{Symbol,String}`: Dictionary mapping formats to saved file paths
+- `Dict{Symbol,String}`: Dictionary mapping formats to saved file paths.
 """
 function save_figure(plot_or_fig, name::String, base_dir::String)
     saved = Dict{Symbol,String}()
@@ -74,21 +72,20 @@ function save_figure(plot_or_fig, name::String, base_dir::String)
 end
 
 """
-Cria e salva o plot comparativo de deltas para um problema e um solver específicos.
+Create and save the delta-comparison plot for a specific problem and solver.
 """
 function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solver_name::String)
-    println("\n=== Criando plot para: problema=$problem_name, solver=$solver_name ===")
+    println("\n=== Creating plot for: problem=$problem_name, solver=$solver_name ===")
     
-    # Extrair dados do arquivo usando a função do módulo
+    # Extract data from file using module helper
     deltas, final_points_dict = AAS2025PDFreeMO.extract_problem_data(filepath, problem_name, solver_name)
     
-    # Verificar se temos dados
     if isempty(deltas)
-        println("Nenhum delta encontrado para o problema $problem_name com o solver $solver_name")
+        println("No deltas found for problem $problem_name with solver $solver_name")
         return nothing
     end
     
-    # Criar estrutura de pastas organizadas por problema
+    # Organize output directories by problem
     problem_str = string(problem_name)
     base_dir = datadir("plots", "comparison", problem_str)
     filename_base = replace(basename(filepath), ".jld2" => "")
@@ -100,22 +97,22 @@ function create_and_save_delta_plot(filepath::String, problem_name::Symbol, solv
         _ensure_cairomakie_available()
         return _create_with_cairomakie(deltas, final_points_dict, solver_name, filename_base, base_dir, problem_name)
     else
-        error("quality inválido: $(quality). Use \"normal\" ou \"high\".")
+        error("Invalid quality setting: $(quality). Use \"normal\" or \"high\".")
     end
 end
 
 function _create_with_plots(deltas, final_points_dict, solver_name, filename_base, base_dir, problem_name)
-    gr()  # backend leve com suporte a PDF
+    gr()  # lightweight backend with PDF support
 
-    # Caso 1: Apenas um delta - criar plot simples
+    # Case 1: single delta – simple plot
     if length(deltas) == 1
         delta = deltas[1]
         final_points = final_points_dict[delta]
 
-        println("Apenas um delta encontrado ($delta). Criando plot simples com Plots...")
+        println("Single delta found ($delta). Creating simple plot with Plots...")
 
         if isempty(final_points)
-            println("Aviso: Nenhum ponto encontrado para delta = $delta")
+            println("Warning: No points found for delta = $delta")
             return nothing
         end
 
@@ -147,19 +144,19 @@ function _create_with_plots(deltas, final_points_dict, solver_name, filename_bas
         return save_figure(p, output_name, base_dir)
     end
 
-    println("Múltiplos deltas encontrados. Criando plot comparativo com Plots...")
+    println("Multiple deltas found. Creating comparative plot with Plots...")
 
     valid_deltas = Float64[]
     for delta in deltas
         if isempty(final_points_dict[delta])
-            println("Aviso: Nenhum ponto encontrado para delta = $delta. Ignorando este delta.")
+            println("Warning: No points found for delta = $delta. Skipping this delta.")
         elseif delta != 0.0
             push!(valid_deltas, delta)
         end
     end
 
     if isempty(valid_deltas)
-        println("Nenhum delta com pontos válidos encontrado.")
+        println("No deltas with valid points found.")
         return nothing
     end
 
@@ -195,15 +192,15 @@ function _create_with_plots(deltas, final_points_dict, solver_name, filename_bas
 end
 
 function _create_with_cairomakie(deltas, final_points_dict, solver_name, filename_base, base_dir, problem_name)
-    # Caso 1: Apenas um delta - criar plot simples
+    # Case 1: single delta – simple plot
     if length(deltas) == 1
         delta = deltas[1]
         final_points = final_points_dict[delta]
 
-        println("Apenas um delta encontrado ($delta). Criando plot simples com CairoMakie...")
+        println("Single delta found ($delta). Creating simple plot with CairoMakie...")
 
         if isempty(final_points)
-            println("Aviso: Nenhum ponto encontrado para delta = $delta")
+            println("Warning: No points found for delta = $delta")
             return nothing
         end
 
@@ -234,19 +231,19 @@ function _create_with_cairomakie(deltas, final_points_dict, solver_name, filenam
         return save_figure(fig, output_name, base_dir)
     end
 
-    println("Múltiplos deltas encontrados. Criando plot comparativo com CairoMakie...")
+    println("Multiple deltas found. Creating comparative plot with CairoMakie...")
 
     valid_deltas = Float64[]
     for delta in deltas
         if isempty(final_points_dict[delta])
-            println("Aviso: Nenhum ponto encontrado para delta = $delta. Ignorando este delta.")
+            println("Warning: No points found for delta = $delta. Skipping this delta.")
         elseif delta != 0.0
             push!(valid_deltas, delta)
         end
     end
 
     if isempty(valid_deltas)
-        println("Nenhum delta com pontos válidos encontrado.")
+        println("No deltas with valid points found.")
         return nothing
     end
 
@@ -286,41 +283,41 @@ function _create_with_cairomakie(deltas, final_points_dict, solver_name, filenam
 end
 
 """
-Cria plots comparativos de deltas para todos os problemas biobjetivos disponíveis
+Create delta-comparison plots for all available bi-objective problems.
 """
 function create_all_delta_comparison_plots(filepath::String)
-    println("\n=== Gerando Plots Comparativos de Deltas para todos os problemas ===")
-    println("Formato de saída: PDF")
+    println("\n=== Generating delta-comparison plots for all problems ===")
+    println("Output format: PDF")
     
-    # Listar problemas biobjetivos disponíveis
+    # List available bi-objective problems
     biobjective_problems = AAS2025PDFreeMO.list_biobjective_problems(filepath)
     
     if isempty(biobjective_problems)
-        println("Nenhum problema biobjetivo encontrado para análise.")
+        println("No bi-objective problems found for analysis.")
         return
     end
     
-    println("Problemas encontrados: $biobjective_problems")
+    println("Problems found: $biobjective_problems")
     
     all_results = Dict{Symbol, Dict{String, Any}}()
     
-    # Para cada problema, criar plots para todos os solvers disponíveis
+    # For each problem, create plots for every available solver
     for problem in biobjective_problems
-        println("\n--- Processando problema: $problem ---")
+        println("\n--- Processing problem: $problem ---")
         
-        # Listar solvers para o problema selecionado
+        # List solvers for the selected problem
         available_solvers = AAS2025PDFreeMO.list_solvers_for_problem(filepath, problem)
         
         if isempty(available_solvers)
-            println("Nenhum solver encontrado para o problema '$problem'.")
+            println("No solvers found for problem '$problem'.")
             continue
         end
         
-        println("Solvers encontrados para '$problem': $(join(available_solvers, ", "))")
+        println("Solvers found for '$problem': $(join(available_solvers, ", "))")
         
         problem_results = Dict{String, Any}()
         
-        # Criar um plot para cada solver
+        # Create one plot per solver
         for solver in available_solvers
             saved_files = create_and_save_delta_plot(filepath, problem, solver)
             problem_results[solver] = saved_files
@@ -329,114 +326,118 @@ function create_all_delta_comparison_plots(filepath::String)
         all_results[problem] = problem_results
     end
     
-    println("\n=== Todos os Plots Comparativos de Deltas foram gerados ===")
-    println("Formato disponível: PDF")
+    println("\n=== All delta-comparison plots generated ===")
+    println("Available format: PDF")
     
     return all_results
 end
 
 # ========================================================================================
-# FUNÇÃO PRINCIPAL
+# MAIN FUNCTION
 # ========================================================================================
 
+"""
+Interactive CLI that selects a JLD2 file, chooses bi-objective problems and solvers,
+and generates delta-comparison plots in PDF format.
+"""
 function main()
-    println("=== Gerador de Plots Comparativos de Deltas ===")
-    println("Usando dados JLD2 do repositório AAS2025-PDFreeMO")
-    println("Formato de saída: PDF")
+    println("=== Delta Comparison Plot Generator ===")
+    println("Using JLD2 data from the AAS2025-PDFreeMO repository")
+    println("Output format: PDF")
     
-    # Listar arquivos disponíveis
+    # List available files
     jld2_files = list_jld2_files()
     
     if isempty(jld2_files)
         return
     end
     
-    # Escolher arquivo
+    # Choose file
     if length(jld2_files) == 1
         selected_file = jld2_files[1]
-        println("\nUsando arquivo: $selected_file")
+        println("\nUsing file: $selected_file")
     else
-        println("\nEscolha um arquivo para analisar:")
+        println("\nChoose a file to analyze:")
         for (i, file) in enumerate(jld2_files)
             println("$i. $file")
         end
         
-        print("Digite o número do arquivo: ")
+        print("Enter file number: ")
         choice = parse(Int, readline())
         
         if 1 <= choice <= length(jld2_files)
             selected_file = jld2_files[choice]
         else
-            println("Escolha inválida.")
+            println("Invalid choice.")
             return
         end
     end
     
-    # Obter caminho completo do arquivo
+    # Build full path to file
     filepath = datadir("sims", selected_file)
     
-    # Listar problemas biobjetivos disponíveis
+    # List available bi-objective problems
     biobjective_problems = AAS2025PDFreeMO.list_biobjective_problems(filepath)
     
     if isempty(biobjective_problems)
-        println("Nenhum problema biobjetivo encontrado para análise.")
+        println("No bi-objective problems found for analysis.")
         return
     end
     
-    # Escolher problema
+    # Choose problem
     if length(biobjective_problems) == 1
         selected_problem = biobjective_problems[1]
-        println("\nUsando problema: $selected_problem")
+        println("\nUsing problem: $selected_problem")
     else
-        println("\nEscolha um problema para analisar:")
+        println("\nChoose a problem to analyze:")
         for (i, problem) in enumerate(biobjective_problems)
             println("$i. $problem")
         end
-        println("$(length(biobjective_problems) + 1). Todos os problemas")
+        println("$(length(biobjective_problems) + 1). All problems")
         
-        print("Digite o número do problema: ")
+        print("Enter problem number: ")
         problem_choice = parse(Int, readline())
         
         if 1 <= problem_choice <= length(biobjective_problems)
             selected_problem = biobjective_problems[problem_choice]
         elseif problem_choice == length(biobjective_problems) + 1
-            # Criar plots para todos os problemas
+            # Create plots for all problems
             create_all_delta_comparison_plots(filepath)
-            println("\nAnálise concluída!")
+            println("\nAnalysis complete!")
             return
         else
-            println("Escolha inválida.")
+            println("Invalid choice.")
             return
         end
     end
     
-    # Listar solvers para o problema selecionado
+    # List solvers for the selected problem
     available_solvers = AAS2025PDFreeMO.list_solvers_for_problem(filepath, selected_problem)
     
     if isempty(available_solvers)
-        println("Nenhum solver encontrado para o problema '$selected_problem'.")
+        println("No solvers found for problem '$selected_problem'.")
         return
     end
     
-    println("\nSolvers encontrados para '$selected_problem': $(join(available_solvers, ", "))")
+    println("\nSolvers found for '$selected_problem': $(join(available_solvers, ", "))")
     
-    # Criar um plot para cada solver
+    # Create one plot per solver
     for solver in available_solvers
         create_and_save_delta_plot(filepath, selected_problem, solver)
     end
     
-    # Mostrar diretórios de saída
+    # Show output directories
     base_dir = datadir("plots", "comparison", string(selected_problem))
-    println("\nDiretórios de saída:")
+    println("\nOutput directories:")
     fmt_dir = joinpath(base_dir, "pdf")
     if isdir(fmt_dir)
         println("  - PDF: $fmt_dir")
     end
     
-    println("\nAnálise concluída!")
+    println("\nAnalysis complete!")
 end
 
-# Executar se o script for chamado diretamente
+# Execute when run directly
 if abspath(PROGRAM_FILE) == @__FILE__
     main()
 end 
