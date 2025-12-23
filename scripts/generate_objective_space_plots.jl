@@ -1,28 +1,25 @@
 using DrWatson
 using MOProblems
 using Plots
-# using CairoMakie     # (opcional) backend com suporte a PDF de alta qualidade (ver `quality = "high"`)
+# using CairoMakie     # (optional) high-quality PDF backend (see `quality = "high"`)
 @quickactivate "AAS2025-PDFreeMO"
 include(srcdir("AAS2025PDFreeMO.jl"))
 using .AAS2025PDFreeMO
 
 # ==============================================================================
-# Configuração
+# Configuration
 # ==============================================================================
 """
     quality
 
-Controla qual biblioteca de plot será usada:
+Controls which plotting backend to use:
 
-- `"normal"` (padrão): usa `Plots.jl` (mais leve para instalar) e salva em `PDF`.
-- `"high"`: usa `CairoMakie.jl` e salva em `PDF` (alta qualidade).
+- `"normal"` (default): uses `Plots.jl` (lighter dependency footprint) and saves PDF.
+- `"high"`: uses `CairoMakie.jl` and saves PDF (higher quality).
 
-Se você colocar `quality = "high"`, garanta que `CairoMakie` está no seu ambiente:
+If you choose `quality = "high"`, ensure `CairoMakie` is available in your environment:
 
 julia --project -e 'using Pkg; Pkg.add("CairoMakie")'
-
-ou no REPL:
-pkg> add CairoMakie
 """
 const quality::String = "normal"
 
@@ -36,15 +33,15 @@ println("Problems selected: $PROBLEMS")
 """
     save_figure(plot_or_fig, name::Symbol, base_dir::String)
 
-Saves the figure/plot as PDF in `base_dir/pdf`, with a name based on `name`.
+Save the figure/plot as PDF in `base_dir/pdf`, with a name derived from `name`.
 
 # Arguments
-- `plot_or_fig`: Plot/Figure to save
-- `name::Symbol`: Base name for the file
-- `base_dir::String`: Base directory where the `pdf` subdirectory will be created
+- `plot_or_fig`: Plot or figure to save.
+- `name::Symbol`: Base filename.
+- `base_dir::String`: Root directory where the `pdf` subdirectory is created.
 
 # Returns
-- `String`: Saved file path
+- `String`: Saved file path.
 """
 function save_figure(plot_or_fig, name::Symbol, base_dir::String)
     format_dir = joinpath(base_dir, "pdf")
@@ -67,15 +64,15 @@ end
     generate_objective_space_plot(problem_name::Symbol;
                                  grid_points::Int=100)
 
-Creates and saves the objective space plot for a biobjective problem.
-Retorna o objeto de plot (Plots.jl) ou Figure (Makie), dependendo de `quality`.
+Create and save the objective space plot for a biobjective problem. Returns the
+Plot (Plots.jl) or Figure (Makie) object depending on `quality`.
 
 # Arguments
-- `problem_name::Symbol`: Problem name
-- `grid_points::Int=100`: Number of grid points
+- `problem_name::Symbol`: Problem name.
+- `grid_points::Int=100`: Number of grid points.
 
 # Returns
-- `Tuple{Any, String}`: Plot/Figure e caminho do PDF salvo
+- `Tuple{Any, String}`: Plot/Figure and saved PDF path.
 """
 function generate_objective_space_plot(problem_name::Symbol;
                                       grid_points::Int=100)
@@ -152,10 +149,14 @@ function generate_objective_space_plot(problem_name::Symbol;
         saved_pdf = save_figure(fig, problem_name, base_dir)
         return fig, saved_pdf
     else
-        error("quality inválido: $(quality). Use \"normal\" ou \"high\".")
+        error("Invalid quality setting: $(quality). Use \"normal\" or \"high\".")
     end
 end
 
+"""
+Generate objective space plots for all configured biobjective problems and
+summarize the output locations.
+"""
 function main()
     println("Starting generation of objective space plots (quality=$quality)...")
     println("Total: $(length(PROBLEMS)), points: $GRID_POINTS")
