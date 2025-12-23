@@ -7,18 +7,18 @@ using Printf
 using Plots
 using PlotThemes
 
-# Incluir o módulo para ter acesso aos tipos e funções de análise
+# Load the module to access analysis types and functions
 include(srcdir("AAS2025PDFreeMO.jl"))
 using .AAS2025PDFreeMO
 
 # ========================================================================================
-# CONFIGURAÇÃO
+# CONFIGURATION
 # ========================================================================================
 
-# Nomes dos solvers (deve corresponder aos nomes salvos no JLD2)
+# Solver names (must match the names saved in JLD2)
 const SOLVER_NAMES = ["PDFPM", "CondG", "ProxGrad"]
 
-# Métricas disponíveis para análise
+# Metrics available for analysis
 const METRICS = Dict(
     "iter" => "Iterations",
     "n_f_evals" => "Function evaluations",
@@ -27,35 +27,35 @@ const METRICS = Dict(
 )
 
 # ========================================================================================
-# FUNÇÕES AUXILIARES
+# HELPER FUNCTIONS
 # ========================================================================================
 
 """
-Cria e salva o performance profile
+Create and save the performance profile.
 """
 function create_performance_profile(filepath::String, metric::String)
     perf_matrix, instance_info = AAS2025PDFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES)
     
     if perf_matrix === nothing || isempty(perf_matrix)
-        println("Não foi possível extrair dados de performance.")
+        println("Could not extract performance data.")
         return Dict{Float64, Dict{Symbol, String}}()
     end
 
-    # Filtrar problemas que nao foram resolvidos por nenhum dos solvers
+    # Filter problems that none of the solvers solved
     valid_rows = []
     # valid_rows = findall(row -> !all(isnan, row) , eachrow(perf_matrix))
     valid_rows = findall(row -> !all(isnan, row) && !any(==(0.0), row), eachrow(perf_matrix))
 
 
-    println("Total de instâncias: $(size(perf_matrix, 1)), Válidas: $(length(valid_rows))")
+    println("Total instances: $(size(perf_matrix, 1)), Valid: $(length(valid_rows))")
     
-    # Criar um PP para todos os deltas simnultaneamente
-    # Preparar nome do arquivo
+    # Create a PP for all deltas simultaneously
+    # Prepare filename
     filename_base = replace(basename(filepath), ".jld2" => "")
     output_name = "pp_$(metric)_$(filename_base)"
     title_text = "$(METRICS[metric])"
 
-    # Criar o gráfico
+    # Create the plot
     # default(
     #         fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
     #         guidefontsize = 14,
@@ -83,22 +83,22 @@ function create_performance_profile(filepath::String, metric::String)
     mkpath(pdf_dir)
     output_file = joinpath(pdf_dir, "$(output_name).pdf")
     savefig(p, output_file)
-    println("Performance profile salvo em: $output_file")
-    # Encontrar deltas únicos a partir das informações das instâncias
+    println("Performance profile saved at: $output_file")
+    # Find unique deltas from the instance information
     unique_deltas = unique([info[2] for info in instance_info])
-    println("\nDeltas encontrados: $unique_deltas. Gerando um perfil para cada um.")
+    println("\nDeltas found: $unique_deltas. Generating one profile per delta.")
     
     all_saved_files = Dict{Float64, Dict{Symbol, String}}()
     
-    # Iterar sobre cada delta e criar um perfil de desempenho
+    # Iterate over each delta and create a performance profile
     for delta in unique_deltas
-        println("\n--- Processando Delta = $delta ---")
+        println("\n--- Processing Delta = $delta ---")
         
-        # Filtrar a matriz de performance e as informações de instância para o delta atual
+        # Filter the performance matrix and instance info for the current delta
         indices = findall(info -> info[2] == delta, instance_info)
         
         if isempty(indices)
-            println("Nenhuma instância encontrada para o delta $delta.")
+            println("No instances found for delta $delta.")
             continue
         end
         
@@ -108,13 +108,13 @@ function create_performance_profile(filepath::String, metric::String)
 
         perf_matrix_for_delta = perf_matrix_for_delta[valid_rows, :]
 
-        # Verificar se temos dados válidos para este delta
+        # Check whether we have valid data for this delta
         if all(isnan, perf_matrix_for_delta)
-            println("Nenhum dado válido encontrado para a métrica '$metric' com delta = $delta.")
+            println("No valid data found for metric '$metric' with delta = $delta.")
             continue
         end
         
-        # Filtrar solvers que têm dados para este delta
+        # Filter solvers that have data for this delta
         solvers_with_data = String[]
         valid_cols = []
         for (solver_idx, solver) in enumerate(SOLVER_NAMES)
@@ -125,23 +125,23 @@ function create_performance_profile(filepath::String, metric::String)
         end
         
         if length(solvers_with_data) < 2
-            println("São necessários pelo menos 2 solvers com dados válidos para criar o perfil para delta = $delta.")
+            println("At least two solvers with valid data are required to create the profile for delta = $delta.")
             continue
         end
         
         perf_matrix_filtered = perf_matrix_for_delta[:, valid_cols]
         
-        # Criar estrutura de pastas organizadas por delta
+        # Create folder structure organized by delta
         delta_str_folder = replace(string(delta), "." => "-")
         base_dir = datadir("plots", "PP", delta_str_folder)
         
-        # Preparar nome do arquivo
+        # Prepare filename
         filename_base = replace(basename(filepath), ".jld2" => "")
         output_name = "pp_$(metric)_$(filename_base)"
 
         title_text = "$(METRICS[metric]) (δ = $delta)"
     
-        # # Criar o gráfico
+        # # Create the plot
         # default(
         #         fontfamily    = "Computer Modern",  # or "Times New Roman", "Arial", etc.
         #         guidefontsize = 14,
@@ -168,40 +168,40 @@ function create_performance_profile(filepath::String, metric::String)
         output_file = joinpath(pdf_dir, "$(output_name).pdf")
         savefig(p, output_file)
         all_saved_files[delta] = Dict(:pdf => output_file)
-        println("Performance profile salvo em: $output_file")
+        println("Performance profile saved at: $output_file")
     end
     
     return all_saved_files
 end
 
 """
-Cria performance profiles para todas as métricas disponíveis
+Create performance profiles for all available metrics.
 """
 function create_all_performance_profiles(filepath::String)
-    println("\n=== Gerando Performance Profiles para todas as métricas ===")
+    println("\n=== Generating Performance Profiles for all metrics ===")
     
     all_results = Dict{String, Any}()
     
     for (metric, description) in METRICS
-        println("\n--- Processando métrica: $metric ($description) ---")
+        println("\n--- Processing metric: $metric ($description) ---")
         results = create_performance_profile(filepath, metric)
         all_results[metric] = results
     end
     
-    println("\n=== Todos os Performance Profiles foram gerados ===")
+    println("\n=== All Performance Profiles generated ===")
     
     return all_results
 end
 
 # ========================================================================================
-# FUNÇÃO PRINCIPAL
+# MAIN FUNCTION
 # ========================================================================================
 
 function main()
-    println("=== Gerador de Performance Profiles ===")
-    println("Usando dados JLD2 do repositório AAS2025-PDFreeMO")
+    println("=== Performance Profile Generator ===")
+    println("Using JLD2 data from the AAS2025-PDFreeMO repository")
     
-    # Listar arquivos disponíveis
+    # List available files
     jld2_files = list_jld2_files()
 
     
@@ -210,67 +210,67 @@ function main()
         return
     end
     
-    # Escolher arquivo
+    # Choose file
     if length(jld2_files) == 1
         selected_file = jld2_files[1]
-        println("\nUsando arquivo: $selected_file")
+        println("\nUsing file: $selected_file")
     else
-        println("\nEscolha um arquivo para analisar:")
+        println("\nChoose a file to analyze:")
         for (i, file) in enumerate(jld2_files)
             println("$i. $file")
         end
         
-        print("Digite o número do arquivo: ")
+        print("Enter file number: ")
         choice = parse(Int, readline())
         
         if 1 <= choice <= length(jld2_files)
             selected_file = jld2_files[choice]
         else
-            println("Escolha inválida.")
+            println("Invalid choice.")
             return
         end
     end
     
-    # Escolher métrica
-    println("\nEscolha a métrica para o performance profile:")
+    # Choose metric
+    println("\nChoose the metric for the performance profile:")
     for (i, (metric, description)) in enumerate(METRICS)
         println("$i. $metric ($description)")
     end
-    println("$(length(METRICS) + 1). Todas as métricas")
+    println("$(length(METRICS) + 1). All metrics")
     
-    print("Digite o número da métrica: ")
+    print("Enter metric number: ")
     metric_choice = parse(Int, readline())
     
     metrics_list = collect(keys(METRICS))
     if 1 <= metric_choice <= length(metrics_list)
         selected_metric = metrics_list[metric_choice]
-        # Criar o performance profile para uma métrica específica
+        # Create the performance profile for a specific metric
         filepath = datadir("sims", selected_file)
         results = create_performance_profile(filepath, selected_metric)
         
-        # Mostrar diretórios de saída
+        # Show output directories
         for delta in keys(results)
             delta_str = replace(string(delta), "." => "-")
             base_dir = datadir("plots", "PP", delta_str, "pdf")
-            println("\nDiretório de saída para delta = $delta:")
+            println("\nOutput directory for delta = $delta:")
             if isdir(base_dir)
                 println("  - PDF: $base_dir")
             end
         end
         
     elseif metric_choice == length(metrics_list) + 1
-        # Criar performance profiles para todas as métricas
+        # Create performance profiles for all metrics
         filepath = datadir("sims", selected_file)
         create_all_performance_profiles(filepath)
     else
-        println("Escolha inválida.")
+        println("Invalid choice.")
         return
     end
     
-    println("\nAnálise concluída!")
+    println("\nAnalysis complete!")
 end
 
-# Executar se o script for chamado diretamente
+# Run when the script is called directly
 if abspath(PROGRAM_FILE) == @__FILE__
     main()
 end 
