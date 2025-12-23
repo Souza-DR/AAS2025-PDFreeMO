@@ -1,30 +1,33 @@
+"""
+Tools for configuring, running, and analyzing multiobjective experiments. The module wires together solver options, experiment orchestration, post-processing, and plotting helpers.
+"""
 module AAS2025PDFreeMO
 
-    using DrWatson
-    using Random
-    using JLD2
-    using MOSolvers
-    using MOProblems
+using DrWatson
+using Random
+using JLD2
+using MOSolvers
+using MOProblems
 
-    include("solver_options.jl")
-    include("types.jl")
-    include("utils.jl")
-    include("experiment_runner.jl")
-    include("data_analysis.jl")
+include("solver_options.jl")
+include("types.jl")
+include("utils.jl")
+include("experiment_runner.jl")
+include("data_analysis.jl")
 
-    export ExperimentResult, ExperimentConfig
-    export datas, safe_evalf_solver, safe_evalJf_solver
-    export CommonSolverOptions, SolverSpecificOptions, SolverConfiguration, get_solver_options
-    export generate_experiment_configs, run_experiment, run_experiment_with_batch_saving
-    
-    # Funções de análise de dados
-    export list_jld2_files
-    export is_biobjective_problem, list_biobjective_problems, filter_solvers
-    export extract_performance_data, extract_problem_data
-    export list_solvers_for_problem
-    export _ensure_cairomakie_available
-    
-    # Funções de plotagem
-    export extract_objective_space_data
+export ExperimentResult, ExperimentConfig
+export datas, safe_evalf_solver, safe_evalJf_solver
+export CommonSolverOptions, SolverSpecificOptions, SolverConfiguration, get_solver_options
+export generate_experiment_configs, run_experiment, run_experiment_with_batch_saving
 
-end # module AAS2025PDFreeMO 
+# Data analysis helpers
+export list_jld2_files
+export is_biobjective_problem, list_biobjective_problems, filter_solvers
+export extract_performance_data, extract_problem_data
+export list_solvers_for_problem
+export _ensure_cairomakie_available
+
+# Plotting helpers
+export extract_objective_space_data
+
+end # module AAS2025PDFreeMO
