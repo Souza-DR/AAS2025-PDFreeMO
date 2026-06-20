@@ -21,48 +21,6 @@ function datas(n, m)
     return A
 end
 
-# Safe wrappers compatible with the solver interface
-
-"""
-    safe_evalf_solver(problem, x)
-
-Evaluate the objective vector `f(x)` catching domain violations so the solver
-can handle them, while rethrowing unexpected errors.
-"""
-function safe_evalf_solver(problem, x)
-    try
-        return MOProblems.eval_f(problem, x)
-    catch e
-        if isa(e, MOProblems.DomainViolationError)
-            # Domain violation – let the solver handle it
-            throw(e)
-        else
-            # Unexpected error – propagate for visibility
-            rethrow(e)
-        end
-    end
-end
-
-"""
-    safe_evalJf_solver(problem, x)
-
-Evaluate the Jacobian `Jf(x)` catching domain violations so the solver can
-handle them, while rethrowing unexpected errors.
-"""
-function safe_evalJf_solver(problem, x)
-    try
-        return MOProblems.eval_jacobian(problem, x)
-    catch e
-        if isa(e, MOProblems.DomainViolationError)
-            # Domain violation – let the solver handle it
-            throw(e)
-        else
-            # Unexpected error – propagate for visibility
-            rethrow(e)
-        end
-    end
-end
-
 """
     extract_objective_space_data(problem; grid_points=100)
 
@@ -95,15 +53,13 @@ function extract_objective_space_data(problem; grid_points=100)
         x_range = range(lb[1], ub[1], length=grid_points)
         for x1 in x_range
             x = [x1]
-            try
-                val = safe_evalf_solver(problem, x)
-                push!(f1_vals, val[1])
-                push!(f2_vals, val[2])
-            catch e
-                if !isa(e, MOProblems.DomainViolationError)
-                    rethrow(e)
-                end
+            val = try
+                MOProblems.eval_f(problem, x)
+            catch
+                continue
             end
+            push!(f1_vals, val[1])
+            push!(f2_vals, val[2])
         end
     else
         # For problems with 2+ variables, create a 2D grid
@@ -123,15 +79,13 @@ function extract_objective_space_data(problem; grid_points=100)
                     x[i] = (lb[i] + ub[i]) / 2
                 end
                 
-                try
-                    val = safe_evalf_solver(problem, x)
-                    push!(f1_vals, val[1])
-                    push!(f2_vals, val[2])
-                catch e
-                    if !isa(e, MOProblems.DomainViolationError)
-                        rethrow(e)
-                    end
+                val = try
+                    MOProblems.eval_f(problem, x)
+                catch
+                    continue
                 end
+                push!(f1_vals, val[1])
+                push!(f2_vals, val[2])
             end
         end
     end

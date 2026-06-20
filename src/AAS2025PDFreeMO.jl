@@ -16,7 +16,7 @@ include("experiment_runner.jl")
 include("data_analysis.jl")
 
 export ExperimentResult, ExperimentConfig
-export datas, safe_evalf_solver, safe_evalJf_solver
+export datas
 export CommonSolverOptions, SolverSpecificOptions, SolverConfiguration, get_solver_options
 export generate_experiment_configs, run_experiment, run_experiment_with_batch_saving
 

@@ -147,7 +147,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
             solver_function = getfield(MOSolvers, :PDFPM)
             if config.problem_name == :AAS1 || config.problem_name == :AAS2
                 # Execute with precomputed matrices.
-                result = solver_function(x -> safe_evalf_solver(problem_instance, x),
+                result = solver_function(x -> MOProblems.eval_f(problem_instance, x),
                                         config.data_matrices,
                                         config.delta,
                                         config.initial_point,
@@ -155,18 +155,18 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
                                         lb = l, ub = u)
             else
                 # Execute with precomputed matrices.
-                result = solver_function(x -> safe_evalf_solver(problem_instance, x),
+                result = solver_function(x -> MOProblems.eval_f(problem_instance, x),
                                         config.data_matrices,
                                         config.delta,
                                         config.initial_point,
-                                        options; evalJf = x -> safe_evalJf_solver(problem_instance, x),
+                                        options; evalJf = x -> MOProblems.eval_jacobian(problem_instance, x),
                                         lb = l, ub = u)
             end
         elseif config.solver_name == :Dfree
             # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, :PDFPM)
             # Execute with precomputed matrices.
-            result = solver_function(x -> safe_evalf_solver(problem_instance, x),
+            result = solver_function(x -> MOProblems.eval_f(problem_instance, x),
                                      config.data_matrices,
                                      config.delta,
                                      config.initial_point,
@@ -177,8 +177,8 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
             # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, config.solver_name)
             # Execute with precomputed matrices.
-            result = solver_function(x -> safe_evalf_solver(problem_instance, x),
-                                     x -> safe_evalJf_solver(problem_instance, x),
+            result = solver_function(x -> MOProblems.eval_f(problem_instance, x),
+                                     x -> MOProblems.eval_jacobian(problem_instance, x),
                                      config.data_matrices,
                                      config.delta,
                                      config.initial_point,
