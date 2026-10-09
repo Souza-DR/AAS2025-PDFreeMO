@@ -7,7 +7,7 @@ using DrWatson
 using Random
 using JLD2
 using MOSolvers
-using MOProblems
+using MultiObjectiveProblems
 
 include("solver_options.jl")
 include("types.jl")

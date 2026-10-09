@@ -7,7 +7,7 @@ files.
 
 using DrWatson
 using JLD2
-using MOProblems
+using MultiObjectiveProblems
 
 # ========================================================================================
 # DATA DISCOVERY HELPERS
@@ -87,15 +87,15 @@ Check whether a problem defines exactly two objectives.
 - `Bool`: `true` when the problem is biobjective, `false` otherwise.
 
 # Note
-Returns `false` when the problem constructor is not present in `MOProblems`.
+Returns `false` when the problem constructor is not present in `MultiObjectiveProblems`.
 Other instantiation errors are logged and rethrown to surface unexpected issues.
 """
 function is_biobjective_problem(problem_name::Symbol)
     problem_constructor = try
-        getfield(MOProblems, problem_name)
+        getfield(MultiObjectiveProblems, problem_name)
     catch e
         if e isa UndefVarError && e.var == problem_name
-            @warn "Problem not found in MOProblems; treating as non-biobjective." problem_name
+            @warn "Problem not found in MultiObjectiveProblems; treating as non-biobjective." problem_name
             return false
         end
         rethrow(e)

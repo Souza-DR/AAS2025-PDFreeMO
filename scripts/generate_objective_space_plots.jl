@@ -1,5 +1,5 @@
 using DrWatson
-using MOProblems
+using MultiObjectiveProblems
 using Plots
 # using CairoMakie     # (optional) high-quality PDF backend (see `quality = "high"`)
 @quickactivate "AAS2025-PDFreeMO"
@@ -24,7 +24,7 @@ julia --project -e 'using Pkg; Pkg.add("CairoMakie")'
 const quality::String = "normal"
 
 # List of biobjective problems to generate plots
-const PROBLEMS = [Symbol(p) for p in MOProblems.filter_problems(min_objs=2, max_objs=2)]
+const PROBLEMS = [Symbol(p) for p in MultiObjectiveProblems.filter_problems(min_objs=2, max_objs=2)]
 # const PROBLEMS = [Symbol("AAS1")]
 const GRID_POINTS = 200
 
@@ -80,7 +80,7 @@ function generate_objective_space_plot(problem_name::Symbol;
 
     # Create problem instance
     problem = try
-        problem_func = getfield(MOProblems, problem_name)
+        problem_func = getfield(MultiObjectiveProblems, problem_name)
         problem_func()
     catch e
         error("Could not create problem instance $problem_name: $e")

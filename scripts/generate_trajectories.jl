@@ -9,7 +9,7 @@ using DrWatson
 using JLD2
 using Plots
 # using CairoMakie      # (opcional) backend com suporte a PDF de alta qualidade (ver `quality = "high"`)
-using MOProblems
+using MultiObjectiveProblems
 
 # Load the local module to reuse utility helpers
 include(srcdir("AAS2025PDFreeMO.jl"))
@@ -69,7 +69,7 @@ function extract_trajectory_data(filepath::String, problem_name::Symbol, solver_
     println("\n Extracting trajectories for problem $(problem_name), solver $(solver_name)")
 
     # Instantiate the problem once
-    problem_ctor = getfield(MOProblems, problem_name)
+    problem_ctor = getfield(MultiObjectiveProblems, problem_name)
     problem      = problem_ctor()
     if problem.nobj != 2
         println("Skipping – not a bi-objective problem (nobj = $(problem.nobj))")

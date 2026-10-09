@@ -1,4 +1,4 @@
-using MOProblems
+using MultiObjectiveProblems
 
 """
     datas(n, m)
@@ -27,7 +27,7 @@ end
 Extracts objective space data points from a biobjective problem without creating a plot.
 
 # Arguments
-- `problem`: MOProblems.jl problem (must have exactly 2 objectives)
+- `problem`: MultiObjectiveProblems.jl problem (must have exactly 2 objectives)
 - `grid_points::Int=100`: Number of grid points for each dimension
 
 # Returns
@@ -54,7 +54,7 @@ function extract_objective_space_data(problem; grid_points=100)
         for x1 in x_range
             x = [x1]
             val = try
-                MOProblems.eval_f(problem, x)
+                MultiObjectiveProblems.eval_f(problem, x)
             catch
                 continue
             end
@@ -80,7 +80,7 @@ function extract_objective_space_data(problem; grid_points=100)
                 end
                 
                 val = try
-                    MOProblems.eval_f(problem, x)
+                    MultiObjectiveProblems.eval_f(problem, x)
                 catch
                     continue
                 end

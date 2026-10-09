@@ -15,7 +15,7 @@ The goal of this project is to provide a robust, reproducible, and extensible te
 
 This project relies on two specialized Julia packages developed for multi-objective optimization. These packages provide the core problem definitions and solver implementations used in the experiments.
 
-### [MOProblems.jl](https://github.com/VectorOptimizationGroup/MOProblems.jl)
+### [MultiObjectiveProblems.jl](https://github.com/VectorOptimizationGroup/MultiObjectiveProblems.jl)
 Benchmark library of vector-valued optimization problems in Julia, with analytic per-objective gradients, filtering functions, and a unified interface for testing and comparisons of multi-objective solvers.
 
 ### [MOSolvers.jl](https://github.com/VectorOptimizationGroup/MOSolvers.jl)
@@ -37,7 +37,7 @@ A Julia package for solving multi-objective optimization problems with composite
 
 ### Step 1: Clone the unregistered dependencies
 ```bash
-git clone https://github.com/VectorOptimizationGroup/MOProblems.jl.git
+git clone https://github.com/VectorOptimizationGroup/MultiObjectiveProblems.jl.git
 git clone https://github.com/VectorOptimizationGroup/MOSolvers.jl.git
 ```
 
@@ -51,7 +51,7 @@ cd AAS2025-PDFreeMO
 ```bash
 julia --project=. -e '
 using Pkg
-Pkg.add(path="../MOProblems.jl")
+Pkg.add(path="../MultiObjectiveProblems.jl")
 Pkg.add(path="../MOSolvers.jl")
 Pkg.instantiate()
 Pkg.precompile()

@@ -1,5 +1,5 @@
 using DrWatson
-using MOProblems
+using MultiObjectiveProblems
 using MOSolvers
 using Random
 using Dates
@@ -40,8 +40,8 @@ const SOLVERS = [:PDFPM, :Dfree, :ProxGrad, :CondG] # Solver identifiers
 # const SOLVERS = [:PDFPM]
 const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]
-# all_list = [Symbol(p) for p in sort(MOProblems.filter_problems(has_jacobian=true))]
-all_list = [Symbol(p) for p in sort(MOProblems.get_problem_names())]
+# all_list = [Symbol(p) for p in sort(MultiObjectiveProblems.filter_problems(has_jacobian=true))]
+all_list = [Symbol(p) for p in sort(MultiObjectiveProblems.get_problem_names())]
 const PROBLEMS = all_list
 println("Selected problems: $PROBLEMS")
 

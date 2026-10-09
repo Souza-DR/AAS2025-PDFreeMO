@@ -3,7 +3,7 @@ using DrWatson
 using JLD2
 using Plots
 # using CairoMakie  # (optional) high-quality PDF backend (see `quality = "high"`)
-using MOProblems
+using MultiObjectiveProblems
 
 # Load the local module for analysis utilities
 include(srcdir("AAS2025PDFreeMO.jl"))
