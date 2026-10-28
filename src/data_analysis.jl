@@ -61,12 +61,14 @@ List every solver that contains data for a specific problem in a JLD2 file.
 - `Vector{String}`: Solver names that include the requested problem.
 
 # Note
-The expected hierarchy inside the JLD2 file is `solver/problem/run_id`.
+The expected hierarchy inside the JLD2 file is `solver/problem/run_id`; the
+`PROVENANCE_KEY` group is skipped.
 """
 function list_solvers_for_problem(filepath::String, problem_name::Symbol)
     solvers = String[]
     jldopen(filepath, "r") do file
         for solver_name in keys(file)
+            solver_name == PROVENANCE_KEY && continue
             if haskey(file[solver_name], string(problem_name))
                 push!(solvers, solver_name)
             end
@@ -131,7 +133,7 @@ function list_biobjective_problems(filepath::String)
     biobjective_problems = Symbol[]
     
     jldopen(filepath, "r") do file
-        available_solvers = collect(keys(file))
+        available_solvers = filter(!=(PROVENANCE_KEY), collect(keys(file)))
         
         for solver in available_solvers
             solver_group = file[solver]
@@ -227,7 +229,7 @@ function extract_performance_data(filepath::String, metric::String, target_solve
     println("Metric: $metric")
 
     jldopen(filepath, "r") do file
-        available_solvers = collect(keys(file))
+        available_solvers = filter(!=(PROVENANCE_KEY), collect(keys(file)))
         solvers_to_analyze = filter_solvers(available_solvers, target_solvers)
         
         if isempty(solvers_to_analyze)

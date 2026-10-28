@@ -12,6 +12,7 @@ using MultiObjectiveProblems
 include("solver_options.jl")
 include("types.jl")
 include("utils.jl")
+include("provenance.jl")
 include("experiment_runner.jl")
 include("data_analysis.jl")
 
@@ -19,6 +20,7 @@ export ExperimentResult, ExperimentConfig
 export datas
 export CommonSolverOptions, SolverSpecificOptions, SolverConfiguration, get_solver_options
 export generate_experiment_configs, run_experiment, run_experiment_with_batch_saving
+export collect_provenance, write_provenance, load_provenance
 
 # Data analysis helpers
 export list_jld2_files

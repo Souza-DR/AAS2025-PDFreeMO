@@ -209,7 +209,8 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
 end
 
 """
-    run_experiment_with_batch_saving(configs; batch_size=50, filename_base="benchmark_live")
+    run_experiment_with_batch_saving(configs; batch_size=50, filename_base="benchmark_live",
+                                     outdir=datadir("sims"), provenance=collect_provenance(configs))
 
 Run experiments and save results in batches to minimize data loss.
 
@@ -217,16 +218,28 @@ Run experiments and save results in batches to minimize data loss.
 - `configs`: Experiment configurations.
 - `batch_size`: Number of results persisted per batch.
 - `filename_base`: Base name for the live results file.
+- `outdir`: Directory of the live results file and of the temporary batch files.
+- `provenance`: Record stored under `PROVENANCE_KEY/<problem>` for every problem
+  in `configs` (see `collect_provenance`).
 
 # Returns
 - `Vector{ExperimentResult{T}}`: All collected results.
+
+# Throws
+- `error`: If the live results file already holds provenance for one of the
+  problems (see `write_provenance`).
 """
 function run_experiment_with_batch_saving(
     configs::Vector{ExperimentConfig{T}};
     batch_size::Int = 50,
-    filename_base::String = "benchmark_live"
+    filename_base::String = "benchmark_live",
+    outdir::String = datadir("sims"),
+    provenance::Dict{String, Any} = collect_provenance(configs)
 ) where T
     all_results = ExperimentResult{T}[]
+    problems = unique(config.problem_name for config in configs)
+    final_filepath = joinpath(outdir, "$(filename_base).jld2")
+    mkpath(outdir)
     
     if length(configs) <= batch_size
         println("Total experiments ($(length(configs))) do not exceed batch size ($batch_size). Batch saving is disabled.")
@@ -234,15 +247,15 @@ function run_experiment_with_batch_saving(
             result = run_single_experiment(config)
             push!(all_results, result)
         end
-        _save_results_to_jld2(datadir("sims", "$(filename_base).jld2"), all_results)
+        _save_results_to_jld2(final_filepath, all_results)
+        write_provenance(final_filepath, provenance, problems)
         return all_results
     end
 
     current_batch = ExperimentResult{T}[]
-    final_filepath = datadir("sims", "$(filename_base).jld2")
     
     println("Batch saving enabled. Intermediate results will be saved to: $final_filepath")
-    mkpath(datadir("sims"))
+    write_provenance(final_filepath, provenance, problems)
 
     for (i, config) in enumerate(configs)
         result = run_single_experiment(config)
@@ -256,7 +269,7 @@ function run_experiment_with_batch_saving(
             # would make the next problem's initial points and A matrices depend
             # on the number of batches, hence on the solver list.
             temp_filename = "temp_batch_$(randstring(RandomDevice(), 8)).jld2"
-            temp_filepath = joinpath(datadir("sims"), temp_filename)
+            temp_filepath = joinpath(outdir, temp_filename)
             
             try
                 _save_results_to_jld2(temp_filepath, current_batch)
