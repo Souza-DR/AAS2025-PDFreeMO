@@ -71,6 +71,11 @@ Use the `run_all_problems.jl` script to execute the full test suite. This script
 julia --project=. scripts/run_all_problems.jl
 ```
 
+#### Contents of the results files
+Runs are stored under `solver/problem/delta_<δ>/run_<id>` as `ExperimentResult`s, which record `converged`, the solver's termination `status` and `message`, and the PDFPM `step_tolerance_rule` (`:none` for ProxGrad and CondG). The solver identifiers are `:PDFPM` (rule `:epsilon`, as in the submitted manuscript), `:PDFPM_trace_scaled` (rule `:trace_scaled`, revised Steps 3–4), `:Dfree` (PDFPM without the Jacobian, rule `:epsilon`), `:ProxGrad` and `:CondG`. Problems without registered bounds use `MultiObjectiveProblems.recommended_bounds`.
+
+Each file also holds `_provenance/<problem>`: the commit and dirty state of `MOSolvers.jl`, `MultiObjectiveProblems.jl` and this repository, the Julia version, the full `Project.toml` and `Manifest.toml`, the effective solver options, the seed and the box. Read it with `AAS2025PDFreeMO.load_provenance(filepath, problem)`.
+
 ### 2. Generate Performance Profiles
 After the experiments complete, use `create_performance_profiles.jl` to process the results and generate performance profile plots. The figures will be saved to `data/plots/PP`.
 
