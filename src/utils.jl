@@ -45,8 +45,9 @@ function extract_objective_space_data(problem; grid_points=100)
     f2_vals = Float64[]
     
     n = problem.nvar
-    lb = problem.bounds[1]  # lower bound
-    ub = problem.bounds[2]  # upper bound
+    # Same box as the runner: problems without registered bounds use the
+    # package's recommended box (DEC-001 of the revision).
+    lb, ub = MultiObjectiveProblems.recommended_bounds(problem)
     
     if n == 1
         # For problems with 1 variable, create only a line
