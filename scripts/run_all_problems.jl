@@ -57,16 +57,38 @@ const SEED = 42
 println("Selected problems: $PROBLEMS")
 
 """
-    main(; problems=PROBLEMS, solvers=SOLVERS, nrun=NRUN, deltas=DELTAS, outdir=datadir("sims"))
+    main(; problems=PROBLEMS, solvers=SOLVERS, nrun=NRUN, deltas=DELTAS, outdir=datadir("sims"),
+         run_problems=problems, worker=1, nworkers=1, on_problem_start=nothing)
 
 Run the full benchmark suite across all configured problems, solvers, and
 perturbation levels. Results are saved under `outdir` with a timestamped
 JLD2 file plus one file per problem in `outdir/problems`; each file carries
 a provenance record per problem (see `collect_provenance`). The keywords exist
-for smoke runs; the defaults are the experimental protocol.
+for smoke runs and for partitioned runs; the defaults are the experimental protocol.
+
+# Partitioned runs
+The configurations of every problem in `problems` are generated in order, so the
+random stream (initial points and `A` matrices) is the one of the sequential run,
+but only the problems in `run_problems` are solved. Each of `nworkers` processes
+passes its own `run_problems`, `worker` and `outdir`; no file is shared. The
+partition (`worker`, `nworkers`, `run_problems`, `problems`) is stored in the
+provenance record under `"partition"`. `on_problem_start(problem)`, if given, is
+called before a problem is solved (e.g. to log the machine load).
+
+# Throws
+- `ArgumentError`: If `run_problems` holds a problem that is not in `problems`.
 """
 function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DELTAS,
-              outdir = datadir("sims"))
+              outdir = datadir("sims"), run_problems = problems, worker = 1, nworkers = 1,
+              on_problem_start = nothing)
+    problems = Symbol.(problems)
+    run_problems = Symbol.(run_problems)
+    unknown = setdiff(run_problems, problems)
+    isempty(unknown) || throw(ArgumentError("run_problems not in problems: $unknown"))
+    partition = Dict{String, Any}("worker" => worker, "nworkers" => nworkers,
+                                  "run_problems" => string.(run_problems),
+                                  "problems" => string.(problems))
+
     Random.seed!(SEED)
     mkpath(outdir)
     timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
@@ -75,20 +97,26 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
 
 
     println("Starting benchmark with $(length(problems)) problems")
+    println("Worker $worker of $nworkers: $(length(run_problems)) problems to solve")
     println("Solvers: $(length(solvers)), Runs: $nrun, Deltas: $deltas")
     println("Common options: max_iter=$(COMMON_SOLVER_OPTIONS.max_iter), opt_tol=$(COMMON_SOLVER_OPTIONS.opt_tol)")
 
     for problem in problems
         # Generate experiment configurations with standardized options
         configs = AAS2025PDFreeMO.generate_experiment_configs(
-            [Symbol(problem)], 
-            solvers, 
-            nrun, 
-            deltas, 
+            [Symbol(problem)],
+            solvers,
+            nrun,
+            deltas,
             COMMON_SOLVER_OPTIONS;
             solver_specific_options = SOLVER_SPECIFIC_OPTIONS
         )
+        # The draws above are made for every problem; solving and saving do not
+        # touch the global stream, so skipping a problem keeps the next draws.
+        problem in run_problems || continue
         println("Total instances for problem $problem: $(length(configs))")
+        isnothing(on_problem_start) || on_problem_start(problem)
+        start_time = time()
 
         # Execute with batch saving to reduce data loss risk
         results = AAS2025PDFreeMO.run_experiment_with_batch_saving(
@@ -96,7 +124,8 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
             batch_size=50,
             filename_base="$problem",
             outdir=outdir,
-            provenance=AAS2025PDFreeMO.collect_provenance(configs; seed=SEED),
+            provenance=merge(AAS2025PDFreeMO.collect_provenance(configs; seed=SEED),
+                             Dict{String, Any}("partition" => partition)),
         )
 
         AAS2025PDFreeMO.append_from_jld2(filepath, joinpath(outdir, "$problem.jld2"))
@@ -104,6 +133,7 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
         mkpath(joinpath(outdir, "problems"))
         mv(joinpath(outdir, "$problem.jld2"),
         joinpath(outdir, "problems", "$problem.jld2"); force=true)
+        println("[problem-time] worker=$worker problem=$problem seconds=$(round(time() - start_time; digits=3))")
 
         # --- manual memory cleanup ---
         configs = nothing
