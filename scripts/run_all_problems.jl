@@ -49,32 +49,38 @@ const DELTAS = [0.0, 0.02, 0.05, 0.1]
 # all_list = [Symbol(p) for p in sort(MultiObjectiveProblems.filter_problems(has_jacobian=true))]
 all_list = [Symbol(p) for p in sort(MultiObjectiveProblems.get_problem_names())]
 const PROBLEMS = all_list
+const SEED = 42
 println("Selected problems: $PROBLEMS")
 
 """
+    main(; problems=PROBLEMS, solvers=SOLVERS, nrun=NRUN, deltas=DELTAS, outdir=datadir("sims"))
+
 Run the full benchmark suite across all configured problems, solvers, and
-perturbation levels. Results are saved under `datadir("sims")` with a timestamped
-JLD2 file plus one file per problem.
+perturbation levels. Results are saved under `outdir` with a timestamped
+JLD2 file plus one file per problem in `outdir/problems`; each file carries
+a provenance record per problem (see `collect_provenance`). The keywords exist
+for smoke runs; the defaults are the experimental protocol.
 """
-function main()
-    Random.seed!(42)
-    mkpath(datadir("sims"))
+function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DELTAS,
+              outdir = datadir("sims"))
+    Random.seed!(SEED)
+    mkpath(outdir)
     timestamp = Dates.format(now(), "yyyy-mm-dd_HH-MM-SS")
     filename = "all_results_$(timestamp).jld2"
-    filepath = joinpath(datadir("sims"), filename)
+    filepath = joinpath(outdir, filename)
 
 
-    println("Starting benchmark with $(length(PROBLEMS)) problems")
-    println("Solvers: $(length(SOLVERS)), Runs: $NRUN, Deltas: $DELTAS")
+    println("Starting benchmark with $(length(problems)) problems")
+    println("Solvers: $(length(solvers)), Runs: $nrun, Deltas: $deltas")
     println("Common options: max_iter=$(COMMON_SOLVER_OPTIONS.max_iter), opt_tol=$(COMMON_SOLVER_OPTIONS.opt_tol)")
 
-    for problem in PROBLEMS
+    for problem in problems
         # Generate experiment configurations with standardized options
         configs = AAS2025PDFreeMO.generate_experiment_configs(
             [Symbol(problem)], 
-            SOLVERS, 
-            NRUN, 
-            DELTAS, 
+            solvers, 
+            nrun, 
+            deltas, 
             COMMON_SOLVER_OPTIONS;
             solver_specific_options = SOLVER_SPECIFIC_OPTIONS
         )
@@ -85,20 +91,22 @@ function main()
             configs,
             batch_size=50,
             filename_base="$problem",
+            outdir=outdir,
+            provenance=AAS2025PDFreeMO.collect_provenance(configs; seed=SEED),
         )
 
-        AAS2025PDFreeMO.append_from_jld2(filepath, joinpath(datadir("sims"), "$problem.jld2"))
+        AAS2025PDFreeMO.append_from_jld2(filepath, joinpath(outdir, "$problem.jld2"))
 
-        mkpath(joinpath(datadir("sims"), "problems"))
-        mv(joinpath(datadir("sims"), "$problem.jld2"),
-        joinpath(datadir("sims"), "problems", "$problem.jld2"); force=true)
+        mkpath(joinpath(outdir, "problems"))
+        mv(joinpath(outdir, "$problem.jld2"),
+        joinpath(outdir, "problems", "$problem.jld2"); force=true)
 
         # --- manual memory cleanup ---
         configs = nothing
         results = nothing
         GC.gc()
 
-        println("\nBenchmark completed! Results saved in: $(datadir("sims"))")
+        println("\nBenchmark completed! Results saved in: $outdir")
     end
 end
 
