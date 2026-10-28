@@ -24,7 +24,7 @@ julia --project -e 'using Pkg; Pkg.add("CairoMakie")'
 const quality::String = "normal"
 
 # List of biobjective problems to generate plots
-const PROBLEMS = [Symbol(p) for p in MultiObjectiveProblems.filter_problems(min_objs=2, max_objs=2)]
+const PROBLEMS = [Symbol(p) for p in MultiObjectiveProblems.filter_problems(min_nobj=2, max_nobj=2)]
 # const PROBLEMS = [Symbol("AAS1")]
 const GRID_POINTS = 200
 
