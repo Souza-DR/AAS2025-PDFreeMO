@@ -43,8 +43,10 @@ const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
 
 # Benchmark configuration
 # :PDFPM and :PDFPM_trace_scaled differ only in PDFPM's step_tolerance_rule
-# (:epsilon and :trace_scaled); :Dfree is PDFPM without evalJf, with :epsilon.
-const SOLVERS = [:PDFPM, :PDFPM_trace_scaled, :Dfree, :ProxGrad, :CondG] # Solver identifiers
+# (:epsilon and :trace_scaled). :Dfree (PDFPM without evalJf, with :epsilon) is
+# still supported by the runner but runs in a separate finite-difference
+# experiment, so it is not in the default list.
+const SOLVERS = [:PDFPM, :PDFPM_trace_scaled, :ProxGrad, :CondG] # Solver identifiers
 # const SOLVERS = [:PDFPM]
 const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]
