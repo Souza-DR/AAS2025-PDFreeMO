@@ -6,6 +6,8 @@ problem.
 
 # Fields
 - `solver_name::Symbol`: Solver identifier.
+- `step_tolerance_rule::Symbol`: PDFPM `step_tolerance_rule` used by the run
+  (`:epsilon` or `:trace_scaled`); `:none` for solvers that are not PDFPM-based.
 - `problem_name::Symbol`: Problem identifier.
 - `run_id::Int`: Run identifier (e.g., 1 to 200 for each starting point).
 - `delta::T`: Robustness parameter value.
@@ -27,6 +29,7 @@ problem.
 struct ExperimentResult{T<:Real}
     # Input parameters
     solver_name::Symbol
+    step_tolerance_rule::Symbol
     problem_name::Symbol
     run_id::Int
     delta::T

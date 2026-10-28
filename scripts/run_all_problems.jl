@@ -23,12 +23,16 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
     stop_criteria = :NormProgress
 )
 
+# PDFPM parameters, shared by both step tolerance rules so that only the rule differs
+const PDFPM_SPECIFIC_OPTIONS = SolverSpecificOptions(
+    max_subproblem_iter = 20, epsilon = 1e-4, sigma = 1.0, # Limit subproblem iterations for benchmarking
+    # epsilon, sigma, alpha will otherwise use defaults
+)
+
 # Optional solver-specific parameters
 const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
-    :PDFPM => SolverSpecificOptions(
-        max_subproblem_iter = 20, epsilon = 1e-4, sigma = 1.0, # Limit subproblem iterations for benchmarking
-        # epsilon, sigma, alpha will otherwise use defaults
-    ),
+    :PDFPM => PDFPM_SPECIFIC_OPTIONS,
+    :PDFPM_trace_scaled => PDFPM_SPECIFIC_OPTIONS,
     :ProxGrad => SolverSpecificOptions(
         mu = 1.0                    # Explicitly set default value
     )
@@ -36,7 +40,9 @@ const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
 )
 
 # Benchmark configuration
-const SOLVERS = [:PDFPM, :Dfree, :ProxGrad, :CondG] # Solver identifiers
+# :PDFPM and :PDFPM_trace_scaled differ only in PDFPM's step_tolerance_rule
+# (:epsilon and :trace_scaled); :Dfree is PDFPM without evalJf, with :epsilon.
+const SOLVERS = [:PDFPM, :PDFPM_trace_scaled, :Dfree, :ProxGrad, :CondG] # Solver identifiers
 # const SOLVERS = [:PDFPM]
 const NRUN = 200
 const DELTAS = [0.0, 0.02, 0.05, 0.1]

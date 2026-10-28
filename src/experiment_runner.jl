@@ -142,7 +142,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
     l, u = problem_instance.bounds
         
     try        
-        if config.solver_name == :PDFPM
+        if config.solver_name == :PDFPM || config.solver_name == :PDFPM_trace_scaled
             # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, :PDFPM)
             # Execute with precomputed matrices.
@@ -183,6 +183,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
         # `converged`, and the status frequencies need every termination cause.
         return ExperimentResult(
             config.solver_name,
+            solver_step_tolerance_rule(config.solver_name),
             config.problem_name,
             config.run_id,
             config.delta,
@@ -283,6 +284,7 @@ Build an `ExperimentResult` for a run that raised an exception, with status
 function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::AbstractString) where T
     return ExperimentResult{T}(
         config.solver_name,
+        solver_step_tolerance_rule(config.solver_name),
         config.problem_name,
         config.run_id,
         config.delta,

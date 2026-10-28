@@ -119,11 +119,36 @@ function to_proxgrad_options(config::SolverConfiguration{T}) where T
 end
 
 """
-    to_pdfpm_options(config::SolverConfiguration{T}) where T
+    PDFPM_STEP_TOLERANCE_RULES
 
-Convert a normalized configuration into `PDFPM_options`.
+`step_tolerance_rule` passed to `MOSolvers.PDFPM` by each PDFPM-based solver
+identifier. `:epsilon` is the rule of the submitted manuscript (V1) and the
+package default; `:trace_scaled` is the revised rule (V2), which scales the
+proximal-step and sufficient-decrease thresholds by `1 + maxⱼ tr(Bⱼ)`.
+Identifiers name the rule rather than the manuscript version so that they stay
+valid if the package default changes.
 """
-function to_pdfpm_options(config::SolverConfiguration{T}) where T
+const PDFPM_STEP_TOLERANCE_RULES = Dict(
+    :PDFPM => :epsilon,
+    :PDFPM_trace_scaled => :trace_scaled,
+    :Dfree => :epsilon,
+)
+
+"""
+    solver_step_tolerance_rule(solver_name::Symbol)
+
+Return the PDFPM `step_tolerance_rule` used by `solver_name`, or `:none` for
+solvers that are not PDFPM-based.
+"""
+solver_step_tolerance_rule(solver_name::Symbol) = get(PDFPM_STEP_TOLERANCE_RULES, solver_name, :none)
+
+"""
+    to_pdfpm_options(config::SolverConfiguration{T}, step_tolerance_rule::Symbol) where T
+
+Convert a normalized configuration into `PDFPM_options` with the given
+`step_tolerance_rule` (`:epsilon` or `:trace_scaled`).
+"""
+function to_pdfpm_options(config::SolverConfiguration{T}, step_tolerance_rule::Symbol) where T
     common = config.common_options
     specific = config.specific_options
     
@@ -145,7 +170,8 @@ function to_pdfpm_options(config::SolverConfiguration{T}) where T
         sigma = sigma_val,
         alpha = alpha_val,
         max_subproblem_iter = max_subproblem_iter_val,
-        stop_criteria = common.stop_criteria
+        stop_criteria = common.stop_criteria,
+        step_tolerance_rule = step_tolerance_rule
     )
 end
 
@@ -190,8 +216,8 @@ Dispatches to the appropriate conversion function based on `solver_name`.
 function get_solver_options(solver_name::Symbol, config::SolverConfiguration{T}) where T
     if solver_name == :ProxGrad
         return to_proxgrad_options(config)
-    elseif solver_name == :PDFPM || solver_name == :Dfree
-        return to_pdfpm_options(config)
+    elseif haskey(PDFPM_STEP_TOLERANCE_RULES, solver_name)
+        return to_pdfpm_options(config, PDFPM_STEP_TOLERANCE_RULES[solver_name])
     elseif solver_name == :CondG
         return to_condg_options(config)
     else
