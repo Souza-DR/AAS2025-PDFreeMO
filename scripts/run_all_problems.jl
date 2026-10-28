@@ -19,7 +19,7 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
     ftol = 1e-4,                   # Function tolerance
     max_time = 3600.0,             # Maximum runtime in seconds
     print_interval = 1,            # Logging interval
-    store_trace = false,           # Avoid trace storage to conserve memory
+    store_level = :low,            # Per-iteration Fval, abs_theta, progress (PDFPM: sigma, max tr B); no x_trace
     stop_criteria = :NormProgress
 )
 

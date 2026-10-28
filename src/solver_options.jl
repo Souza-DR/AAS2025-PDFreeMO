@@ -10,7 +10,8 @@ Container for solver-agnostic configuration parameters.
 - `ftol::T`: Function tolerance.
 - `max_time::T`: Maximum wall-clock time in seconds.
 - `print_interval::Int`: Logging interval in iterations.
-- `store_trace::Bool`: Whether to store solver trace.
+- `store_level::Symbol`: Trace level passed to the solver (`:none`, `:low`,
+  `:medium` or `:high`; see `MOSolvers` `store_level`).
 - `stop_criteria::Symbol`: Termination criterion identifier.
 """
 struct CommonSolverOptions{T<:Real}
@@ -20,7 +21,7 @@ struct CommonSolverOptions{T<:Real}
     ftol::T
     max_time::T
     print_interval::Int
-    store_trace::Bool
+    store_level::Symbol
     stop_criteria::Symbol
     
     # Inner constructor with defaults.
@@ -31,10 +32,10 @@ struct CommonSolverOptions{T<:Real}
         ftol::T = 1e-4,
         max_time::T = 3600.0,
         print_interval::Integer = 10,
-        store_trace::Bool = false,
+        store_level::Symbol = :none,
         stop_criteria::Symbol = :NormProgress
     ) where T<:Real
-        new{T}(verbose, max_iter, opt_tol, ftol, max_time, print_interval, store_trace, stop_criteria)
+        new{T}(verbose, max_iter, opt_tol, ftol, max_time, print_interval, store_level, stop_criteria)
     end
 end
 
@@ -112,7 +113,7 @@ function to_proxgrad_options(config::SolverConfiguration{T}) where T
         ftol = common.ftol,
         max_time = common.max_time,
         print_interval = common.print_interval,
-        store_trace = common.store_trace,
+        store_level = common.store_level,
         mu = mu_val,
         stop_criteria = common.stop_criteria
     )
@@ -165,7 +166,7 @@ function to_pdfpm_options(config::SolverConfiguration{T}, step_tolerance_rule::S
         ftol = common.ftol,
         max_time = common.max_time,
         print_interval = common.print_interval,
-        store_trace = common.store_trace,
+        store_level = common.store_level,
         epsilon = epsilon_val,
         sigma = sigma_val,
         alpha = alpha_val,
@@ -190,7 +191,7 @@ function to_condg_options(config::SolverConfiguration{T}) where T
         ftol = common.ftol,
         max_time = common.max_time,
         print_interval = common.print_interval,
-        store_trace = common.store_trace,
+        store_level = common.store_level,
         stop_criteria = common.stop_criteria
     )
 end
