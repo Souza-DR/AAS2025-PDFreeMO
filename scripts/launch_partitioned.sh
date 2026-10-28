@@ -28,7 +28,9 @@ nrun=${3:-}
 repo=$(cd "$(dirname "$0")/.." && pwd)
 run_root=$(dirname "$repo")
 julia=${JULIA:-$run_root/julia-1.12.1/bin/julia}
-export JULIA_DEPOT_PATH=${JULIA_DEPOT_PATH:-$run_root/depot}
+# The bundled depot of the installation keeps the precompiled stdlibs; without it
+# every stdlib is recompiled into the depot (REPL hung doing so on neuroniop).
+export JULIA_DEPOT_PATH=${JULIA_DEPOT_PATH:-$run_root/depot:$(dirname "$(dirname "$julia")")/share/julia}
 export JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 export JULIA_PKG_OFFLINE=true  # the depot is already instantiated; never resolve during a run
 snapshot_dir=${SNAPSHOT_DIR:-$HOME/f5-snapshots}
