@@ -33,9 +33,10 @@ function generate_experiment_configs(problems, solvers, nrun, deltas, common_opt
         problem_constructor = getfield(MultiObjectiveProblems, problem_sym)
         problem_instance = problem_constructor()
 
-        # Generate initial points for this problem.
+        # Generate initial points for this problem. Problems without registered
+        # bounds use the package's recommended box (DEC-001 of the revision).
         n = problem_instance.nvar
-        l, u = problem_instance.bounds
+        l, u = MultiObjectiveProblems.recommended_bounds(problem_instance)
         initial_points = [l + rand(n) .* (u - l) for _ in 1:nrun]
 
         # For each delta, precompute a single set of A matrices shared by all solvers.
@@ -139,7 +140,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
     # Resolve solver options for the requested solver.
     options = get_solver_options(config.solver_name, config.solver_config)
        
-    l, u = problem_instance.bounds
+    l, u = MultiObjectiveProblems.recommended_bounds(problem_instance)
         
     try        
         if config.solver_name == :PDFPM || config.solver_name == :PDFPM_trace_scaled
