@@ -145,23 +145,13 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
         if config.solver_name == :PDFPM
             # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, :PDFPM)
-            if config.problem_name == :AAS1 || config.problem_name == :AAS2
-                # Execute with precomputed matrices.
-                result = solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
-                                        config.data_matrices,
-                                        config.delta,
-                                        config.initial_point,
-                                        options;
-                                        lb = l, ub = u)
-            else
-                # Execute with precomputed matrices.
-                result = solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
-                                        config.data_matrices,
-                                        config.delta,
-                                        config.initial_point,
-                                        options; evalJf = x -> MultiObjectiveProblems.eval_jacobian(problem_instance, x),
-                                        lb = l, ub = u)
-            end
+            # Execute with precomputed matrices.
+            result = solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
+                                    config.data_matrices,
+                                    config.delta,
+                                    config.initial_point,
+                                    options; evalJf = x -> MultiObjectiveProblems.eval_jacobian(problem_instance, x),
+                                    lb = l, ub = u)
         elseif config.solver_name == :Dfree
             # Resolve the solver function and its options.
             solver_function = getfield(MOSolvers, :PDFPM)
