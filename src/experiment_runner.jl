@@ -1,5 +1,5 @@
 using Dates
-using Random # Added to generate unique temporary filenames.
+using Random # Unique temporary filenames.
 
 """
     generate_experiment_configs(problems, solvers, nrun, deltas, common_options; solver_specific_options=Dict())
@@ -252,7 +252,10 @@ function run_experiment_with_batch_saving(
         if length(current_batch) >= batch_size || i == length(configs)
             println("\nProcessing batch. Saving $(length(current_batch)) results...")
             
-            temp_filename = "temp_batch_$(randstring(8)).jld2"
+            # RandomDevice keeps the global stream untouched: drawing from it here
+            # would make the next problem's initial points and A matrices depend
+            # on the number of batches, hence on the solver list.
+            temp_filename = "temp_batch_$(randstring(RandomDevice(), 8)).jld2"
             temp_filepath = joinpath(datadir("sims"), temp_filename)
             
             try
