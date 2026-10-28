@@ -197,7 +197,13 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
             result.n_Jf_evals,
             result.total_time,
             copy(result.F_init),
-            copy(result.Fval)
+            copy(result.Fval),
+            deepcopy(result.x_trace),
+            deepcopy(result.Fval_trace),
+            copy(result.abs_theta_trace),
+            copy(result.norm_progress_trace),
+            copy(result.sigma_trace),
+            copy(result.max_tr_B_trace)
         )
         
     catch e
@@ -314,7 +320,13 @@ function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::A
         0,
         0.0,
         fill(T(NaN), nobj),
-        fill(T(NaN), nobj)
+        fill(T(NaN), nobj),
+        Vector{T}[],
+        Vector{T}[],
+        T[],
+        T[],
+        T[],
+        T[]
     )
 end
 

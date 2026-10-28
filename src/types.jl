@@ -24,7 +24,12 @@ problem.
 - `total_time::Float64`: Elapsed runtime in seconds.
 - `F_init::Vector{T}`: Initial objective vector value.
 - `final_objective_value::Vector{T}`: Final objective vector value.
-
+- `x_trace`, `Fval_trace`, `abs_theta_trace`, `norm_progress_trace`,
+  `sigma_trace`, `max_tr_B_trace`: Per-iteration traces copied from the
+  solver's `OptimResult`, filled according to the `store_level` of the run
+  (empty at `:none`, `x_trace` empty at `:low`, `sigma_trace` and
+  `max_tr_B_trace` empty outside PDFPM; all empty for `:runner_error`).
+  Files written before these fields existed lack them.
 """
 struct ExperimentResult{T<:Real}
     # Input parameters
@@ -45,6 +50,14 @@ struct ExperimentResult{T<:Real}
     total_time::Float64
     F_init::Vector{T}
     final_objective_value::Vector{T}
+
+    # Traces of the chosen store level
+    x_trace::Vector{Vector{T}}
+    Fval_trace::Vector{Vector{T}}
+    abs_theta_trace::Vector{T}
+    norm_progress_trace::Vector{T}
+    sigma_trace::Vector{T}
+    max_tr_B_trace::Vector{T}
 end
 
 """
