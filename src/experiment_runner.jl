@@ -189,33 +189,30 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
             error("Solver $(config.solver_name) not supported")
         end
 
-        # Return a result even when the solver reports failure.
-        if result.success
-            res = ExperimentResult(
-                config.solver_name,
-                config.problem_name,
-                config.run_id,
-                config.delta,
-                config.initial_point,
-                true,
-                result.iter,
-                result.n_f_evals,
-                result.n_Jf_evals,
-                result.total_time,
-                copy(result.F_init),
-                copy(result.Fval)
-            )
-            return res
-        else
-            # Solver finished but reported failure.
-            return create_failed_result(config, problem_instance.nobj)
-        end
+        # Keep the metrics of nonconverged runs too: the analysis filters on
+        # `converged`, and the status frequencies need every termination cause.
+        return ExperimentResult(
+            config.solver_name,
+            config.problem_name,
+            config.run_id,
+            config.delta,
+            config.initial_point,
+            MOSolvers.converged(result),
+            result.status,
+            result.message,
+            result.iter,
+            result.n_f_evals,
+            result.n_Jf_evals,
+            result.total_time,
+            copy(result.F_init),
+            copy(result.Fval)
+        )
         
     catch e
         # Log the failure to aid debugging, then return a failed result.
         println("Error while running $(config.solver_name) on $(config.problem_name):")
         println(sprint(showerror, e, catch_backtrace()))
-        return create_failed_result(config, problem_instance.nobj)
+        return create_failed_result(config, problem_instance.nobj, sprint(showerror, e))
     end
 end
 
@@ -288,11 +285,12 @@ function run_experiment_with_batch_saving(
 end
 
 """
-    create_failed_result(config, nobj)
+    create_failed_result(config, nobj, message)
 
-Build an `ExperimentResult` for a failed run.
+Build an `ExperimentResult` for a run that raised an exception, with status
+`:runner_error` and the exception text as `message`.
 """
-function create_failed_result(config::ExperimentConfig{T}, nobj::Int) where T
+function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::AbstractString) where T
     return ExperimentResult{T}(
         config.solver_name,
         config.problem_name,
@@ -300,6 +298,8 @@ function create_failed_result(config::ExperimentConfig{T}, nobj::Int) where T
         config.delta,
         config.initial_point,
         false,
+        :runner_error,
+        String(message),
         0,
         0,
         0,

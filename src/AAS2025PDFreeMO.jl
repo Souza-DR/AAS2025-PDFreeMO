@@ -24,7 +24,7 @@ export generate_experiment_configs, run_experiment, run_experiment_with_batch_sa
 export list_jld2_files
 export is_biobjective_problem, list_biobjective_problems, filter_solvers
 export extract_performance_data, extract_problem_data
-export list_solvers_for_problem
+export list_solvers_for_problem, run_converged
 export _ensure_cairomakie_available
 
 # Plotting helpers

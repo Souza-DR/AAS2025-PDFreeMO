@@ -63,7 +63,7 @@ end
     extract_trajectory_data(filepath, problem_name, solver_name)
 
 Return `(deltas, traj_dict)` where `traj_dict[δ]` is a vector of `(f_init, f_final)`
-tuples.  Only successful runs are considered.
+tuples.  Only converged runs are considered.
 """
 function extract_trajectory_data(filepath::String, problem_name::Symbol, solver_name::String)
     println("\n Extracting trajectories for problem $(problem_name), solver $(solver_name)")
@@ -105,8 +105,8 @@ function extract_trajectory_data(filepath::String, problem_name::Symbol, solver_
                     continue
                 end
                 result = delta_group[run_key]
-                if !result.success
-                    continue   # Ignore failed runs
+                if !AAS2025PDFreeMO.run_converged(result)
+                    continue   # Ignore nonconverged runs
                 end
                 push!(traj_list, (result.F_init, result.final_objective_value))
             end

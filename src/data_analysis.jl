@@ -192,6 +192,18 @@ end
 # ========================================================================================
 
 """
+    run_converged(result)
+
+Return whether a stored run satisfied its solver's stopping criterion.
+
+Results written before `ExperimentResult` gained `converged`/`status` carry the
+older `success` flag instead, which is read as a fallback. The two are not
+equivalent: `success` came from the removed `OptimResult.success`, which
+`MOSolvers.jl` did not set consistently.
+"""
+run_converged(result) = hasproperty(result, :converged) ? result.converged : result.success
+
+"""
     extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
 
 Build a performance matrix from a JLD2 file for the requested metric and solvers.
@@ -208,7 +220,7 @@ Build a performance matrix from a JLD2 file for the requested metric and solvers
 
 # Notes
 - The expected hierarchy is `solver/problem/delta/run_id`.
-- Only runs flagged as `success` and containing the requested metric are recorded.
+- Only converged runs (`run_converged`) containing the requested metric are recorded.
 """
 function extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
     println("\nExtracting performance data from: $(basename(filepath))")
@@ -272,7 +284,7 @@ function extract_performance_data(filepath::String, metric::String, target_solve
                 if path_exists
                     result = file[solver][problem][delta_key][run_key]
                     
-                    if result.success && hasproperty(result, Symbol(metric))
+                    if run_converged(result) && hasproperty(result, Symbol(metric))
                         perf_matrix[instance_idx, solver_idx] = getproperty(result, Symbol(metric))
                     end
                 end
@@ -298,7 +310,7 @@ delta.
 - `Tuple{Vector{Float64}, Dict{Float64, Vector{Vector{Float64}}}}`:
   - Sorted list of delta values present in the file.
   - Dictionary keyed by delta, with each entry containing the final objective
-    points for successful runs.
+    points for converged runs.
 
 # Note
 Designed for biobjective problems where each final point is a vector `[f1, f2]`.
@@ -338,8 +350,8 @@ function extract_problem_data(filepath::String, problem_name::Symbol, solver_nam
                         if startswith(run_key, "run_")
                             result = delta_group[run_key]
                             
-                            # Record only successful runs
-                            if result.success
+                            # Record only converged runs
+                            if run_converged(result)
                                 final_point = result.final_objective_value
                                 
                                 # Track the delta value

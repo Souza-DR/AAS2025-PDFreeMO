@@ -10,7 +10,12 @@ problem.
 - `run_id::Int`: Run identifier (e.g., 1 to 200 for each starting point).
 - `delta::T`: Robustness parameter value.
 - `initial_point::Vector{T}`: Starting point used by the solver.
-- `success::Bool`: Whether the solver completed successfully.
+- `converged::Bool`: Whether the solver's stopping criterion was satisfied
+  (`MOSolvers.converged`).
+- `status::Symbol`: Termination cause reported by the solver (`OptimResult.status`),
+  or `:runner_error` when the run raised an exception before returning a result.
+- `message::String`: Solver termination message, or the exception text for
+  `:runner_error`.
 - `iter::Int`: Total number of solver iterations.
 - `n_f_evals::Int`: Total number of objective function evaluations.
 - `n_Jf_evals::Int`: Total number of Jacobian evaluations.
@@ -28,7 +33,9 @@ struct ExperimentResult{T<:Real}
     initial_point::Vector{T}
 
     # Output metrics
-    success::Bool
+    converged::Bool
+    status::Symbol
+    message::String
     iter::Int
     n_f_evals::Int
     n_Jf_evals::Int
