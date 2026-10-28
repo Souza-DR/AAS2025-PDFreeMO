@@ -23,7 +23,8 @@ const COMMON_SOLVER_OPTIONS = CommonSolverOptions(
     stop_criteria = :NormProgress
 )
 
-# PDFPM parameters, shared by both step tolerance rules so that only the rule differs
+# PDFPM parameters, shared by both step tolerance rules and by :Dfree so that only
+# the rule or the presence of the Jacobian differs
 const PDFPM_SPECIFIC_OPTIONS = SolverSpecificOptions(
     max_subproblem_iter = 20, epsilon = 1e-4, sigma = 1.0, # Limit subproblem iterations for benchmarking
     # epsilon, sigma, alpha will otherwise use defaults
@@ -33,6 +34,7 @@ const PDFPM_SPECIFIC_OPTIONS = SolverSpecificOptions(
 const SOLVER_SPECIFIC_OPTIONS = Dict{Symbol, SolverSpecificOptions{Float64}}(
     :PDFPM => PDFPM_SPECIFIC_OPTIONS,
     :PDFPM_trace_scaled => PDFPM_SPECIFIC_OPTIONS,
+    :Dfree => PDFPM_SPECIFIC_OPTIONS,
     :ProxGrad => SolverSpecificOptions(
         mu = 1.0                    # Explicitly set default value
     )
