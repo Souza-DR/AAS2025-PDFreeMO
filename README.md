@@ -78,6 +78,16 @@ Each result also holds the per-iteration traces of the solver (`x_trace`, `Fval_
 
 Each file also holds `_provenance/<problem>`: the commit and dirty state of `MOSolvers.jl`, `MultiObjectiveProblems.jl` and this repository, the Julia version, the full `Project.toml` and `Manifest.toml`, the effective solver options, the seed and the box. Read it with `AAS2025PDFreeMO.load_provenance(filepath, problem)`.
 
+#### Partitioned runs on several cores
+The benchmark can be split by problem over independent processes without changing any random draw: every worker seeds once, generates the configurations of **all** problems in protocol order and solves only its own (`main(; run_problems, worker, nworkers)`), so its initial points and `A` matrices are those of the sequential run, and the four solvers of a problem run on the same core. Each worker writes to its own directory; the partition is stored in the provenance record under `"partition"`.
+
+- `scripts/assignments/*.tsv`: one `<worker><TAB><problem>` line per protocol problem.
+- `scripts/run_worker.jl <assignment.tsv> <worker> <outdir> [nrun]`: one worker; logs `uptime`, `who` and the busy processes of other users before each problem, and the wall time of each problem (`[problem-time]` lines).
+- `scripts/launch_partitioned.sh <label> <assignment.tsv> [nrun]`: starts every worker of the file detached from the shell (`setsid nohup`), worker `k` pinned to CPU `k-1` with `JULIA_NUM_THREADS=OPENBLAS_NUM_THREADS=OMP_NUM_THREADS=1`. It expects the three repositories, a Julia installation (`julia-1.12.1`) and an instantiated depot (`depot`) as siblings in one directory, and writes `results/<label>/` there (`worker_<k>/`, `logs/`, `launch.txt`, `pids.txt`). Set `SNAPSHOT_SECONDS=0` to disable the periodic copy to `SNAPSHOT_DIR`.
+- `scripts/sync_results.sh <remote_results_dir> <local_dir> [interval]`: run on the local machine; pulls the results with incremental `rsync` until the remote workers end, then once more.
+
+Merge the per-worker `all_results_*.jld2` files with `AAS2025PDFreeMO.append_from_jld2` before the analysis scripts, which read a single file.
+
 ### 2. Generate Performance Profiles
 After the experiments complete, use `create_performance_profiles.jl` to process the results and generate performance profile plots. The figures will be saved to `data/plots/PP`.
 
