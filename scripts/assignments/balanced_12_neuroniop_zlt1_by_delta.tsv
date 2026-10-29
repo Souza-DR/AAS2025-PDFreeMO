@@ -1,0 +1,82 @@
+# worker<TAB>problem[<TAB>delta]; greedy longest-first (LPT) over 12 workers, weights in seconds of the
+# neuroniop pilot (2026-10-28, nrun = 1, round_robin_12.tsv): wall time per problem from [problem-time];
+# the first problem of each worker capped at 2.12 (median remote/local wall ratio) x its local sequential
+# time to discount JIT (AAS1 kept raw), as for balanced_12_neuroniop.tsv. ZLT1 (253 s) is split by delta in
+# proportion to the sum of total_time per delta in the pilot results. Weight of each line after '#'.
+# Estimated makespan: 108 s per run (worker loads 103-108 s, mean 106 s), i.e. ~6.0 h for nrun = 200.
+11	AAS1  # 31.7
+8	AAS2  # 8.4
+11	AP1  # 10.4
+2	AP2  # 6.4
+6	AP3  # 13.5
+6	AP4  # 7.8
+8	BK1  # 6.8
+7	DD1  # 10.6
+1	DGO0  # 5.3
+3	DGO1  # 6.1
+7	DGO2  # 5.7
+6	DTLZ1  # 5.7
+9	DTLZ2  # 22.6
+6	DTLZ3  # 40.6
+11	DTLZ4  # 24.6
+7	DTLZ5  # 39.7
+5	FA1  # 6.3
+7	FDS  # 19.1
+7	FF1  # 8.0
+8	Far1  # 8.7
+12	Hil1  # 6.5
+5	IKK1  # 12.5
+10	IM1  # 5.5
+2	JOS1  # 83.9
+4	JOS4  # 70.4
+5	KW2  # 7.2
+6	LE1  # 7.0
+8	LTDZ1  # 5.7
+5	Lov1  # 5.3
+9	Lov2  # 5.4
+2	Lov3  # 5.9
+3	Lov4  # 7.2
+10	Lov5  # 10.1
+7	Lov6  # 6.9
+12	MGH16  # 13.1
+6	MGH26  # 1.9
+12	MGH33  # 31.2
+8	MGH9  # 39.2
+11	MHHM1  # 6.0
+11	MHHM2  # 6.4
+8	MLF1  # 4.3
+9	MLF2  # 15.0
+10	MMR1  # 7.6
+3	MMR2  # 5.2
+4	MMR3  # 8.3
+4	MMR4  # 6.1
+12	MOP2  # 9.7
+10	MOP3  # 6.5
+9	MOP5  # 8.3
+2	MOP6  # 7.3
+6	MOP7  # 10.7
+4	PNR  # 6.6
+9	QV1  # 33.7
+3	SD  # 8.4
+9	SK1  # 11.3
+8	SK2  # 12.8
+9	SLCDT1  # 6.7
+8	SLCDT2  # 21.7
+5	SP1  # 8.6
+9	SSFYY2  # 5.0
+7	TKLY1  # 13.3
+11	Toi10  # 16.9
+12	Toi4  # 7.7
+7	Toi8  # 3.0
+4	Toi9  # 12.1
+11	VU1  # 7.5
+12	VU2  # 6.0
+10	ZDT1  # 17.4
+10	ZDT2  # 33.3
+12	ZDT3  # 29.4
+10	ZDT4  # 22.7
+6	ZDT6  # 18.0
+10	ZLT1	0.0  # 4.7
+1	ZLT1	0.02  # 100.4
+5	ZLT1	0.05  # 67.5
+3	ZLT1	0.1  # 80.8
