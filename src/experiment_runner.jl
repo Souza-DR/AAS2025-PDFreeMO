@@ -79,35 +79,39 @@ batch and final saving workflows.
 function _save_results_to_jld2(filepath::String, results::Vector{<:ExperimentResult})
     jldopen(filepath, "w") do file
         for result in results
-            delta_str = replace(string(result.delta), "." => "-")
-            key = "$(result.solver_name)/$(result.problem_name)/delta_$(delta_str)/run_$(result.run_id)"
+            key = "$(result.solver_name)/$(result.problem_name)/delta_$(delta_tag(result.delta))/run_$(result.run_id)"
             file[key] = result
         end
     end
 end
 
 """
-    _copy_jld2_contents(source, dest)
+    _copy_jld2_contents(source, dest, path="")
 
 Recursively copy the contents of a JLD2 group into another group or file.
+
+# Throws
+- `error`: If an entry other than a group exists in both. Results and
+  provenance records are never overwritten; entries copied before the conflict
+  stay in `dest`.
 """
-function _copy_jld2_contents(source::Union{JLD2.Group, JLD2.JLDFile}, dest::Union{JLD2.Group, JLD2.JLDFile})
+function _copy_jld2_contents(source::Union{JLD2.Group, JLD2.JLDFile}, dest::Union{JLD2.Group, JLD2.JLDFile}, path::String = "")
     for key in keys(source)
+        entry = isempty(path) ? key : "$path/$key"
         if JLD2.haskey(dest, key)
             obj_source = source[key]
             obj_dest = dest[key]
             
             if obj_source isa JLD2.Group && obj_dest isa JLD2.Group
-                _copy_jld2_contents(obj_source, obj_dest)
+                _copy_jld2_contents(obj_source, obj_dest, entry)
             else
-                println("Warning: key '$key' caused a conflict. Overwriting destination.")
-                dest[key] = obj_source
+                error("JLD2 entry '$entry' exists in both files; refusing to overwrite it.")
             end
         else
             obj_source = source[key]
             if obj_source isa JLD2.Group
                 new_group = JLD2.Group(dest, key)
-                _copy_jld2_contents(obj_source, new_group)
+                _copy_jld2_contents(obj_source, new_group, entry)
             else
                 dest[key] = obj_source
             end
@@ -119,6 +123,10 @@ end
     append_from_jld2(final_filepath, temp_filepath)
 
 Append results from a temporary JLD2 file into a final file.
+
+# Throws
+- `error`: If a result or provenance record of `temp_filepath` is already in
+  `final_filepath` (see `_copy_jld2_contents`).
 """
 function append_from_jld2(final_filepath::String, temp_filepath::String)
     jldopen(final_filepath, "a+") do final_file
