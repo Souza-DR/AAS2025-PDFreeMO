@@ -6,6 +6,7 @@ module AAS2025PDFreeMO
 using DrWatson
 using Random
 using JLD2
+using LinearAlgebra: BLAS  # stdlib already loaded by MOSolvers; BLAS configuration for the provenance
 using MOSolvers
 using MultiObjectiveProblems
 
@@ -20,7 +21,7 @@ export ExperimentResult, ExperimentConfig
 export datas
 export CommonSolverOptions, SolverSpecificOptions, SolverConfiguration, get_solver_options
 export generate_experiment_configs, run_experiment, run_experiment_with_batch_saving
-export collect_provenance, write_provenance, load_provenance
+export collect_provenance, write_provenance, load_provenance, machine_record, part_name
 
 # Data analysis helpers
 export list_jld2_files
