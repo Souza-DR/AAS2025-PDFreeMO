@@ -85,6 +85,8 @@ Before the measured runs of each problem, run 1 of each (solver, solved delta)
 is run and discarded (see `warm_up`), so that no `total_time` includes
 compilation; each result records its own `compile_time` as proof. The warm-up
 is logged as `[warmup]` and stored in the provenance record under `"warmup"`.
+The provenance is collected before the warm-up, and the JLD2 writes of the run
+are rehearsed once per process before the first warm-up (see `rehearse_result_io`).
 
 # Throws
 - `ArgumentError`: If `run_problems` holds a problem that is not in `problems`,
@@ -116,6 +118,7 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
     filepath = joinpath(outdir, filename)
 
 
+    io_rehearsed = false
     println("Starting benchmark with $(length(problems)) problems")
     println("Worker $worker of $nworkers: $(length(run_problems)) problems to solve")
     println("Solvers: $(length(solvers)), Runs: $nrun, Deltas: $deltas")
@@ -142,6 +145,15 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
         isnothing(on_problem_start) || on_problem_start(problem, solve_deltas)
         start_time = time()
 
+        # Collected before the warm-up, and the JLD2 writes rehearsed once per process:
+        # code compiled between the warm-up and the measured runs can invalidate the
+        # solvers' compiled code (see `rehearse_result_io`).
+        provenance = merge(AAS2025PDFreeMO.collect_provenance(configs; seed=SEED, protocol_deltas=deltas),
+                           Dict{String, Any}("partition" => partition))
+        if !io_rehearsed
+            AAS2025PDFreeMO.rehearse_result_io(configs, provenance, outdir)
+            io_rehearsed = true
+        end
         warmup = AAS2025PDFreeMO.warm_up(configs)
         println("[warmup] worker=$worker problem=$problem deltas=$(join(solve_deltas, ",")) runs=$(length(warmup["runs"])) seconds=$(round(warmup["seconds"]; digits=3)) compile_seconds=$(round(warmup["compile_seconds"]; digits=3))")
 
@@ -151,8 +163,7 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
             batch_size=50,
             filename_base=part,
             outdir=outdir,
-            provenance=merge(AAS2025PDFreeMO.collect_provenance(configs; seed=SEED, protocol_deltas=deltas),
-                             Dict{String, Any}("partition" => partition, "warmup" => warmup)),
+            provenance=merge(provenance, Dict{String, Any}("warmup" => warmup)),
         )
 
         AAS2025PDFreeMO.append_from_jld2(filepath, joinpath(outdir, "$part.jld2"))

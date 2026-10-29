@@ -83,6 +83,18 @@ end
     @test all(result -> result.compile_time == 0, measured)
 end
 
+@testset "rehearse_result_io" begin
+    Random.seed!(SEED)
+    configs = problem_configs(:AP3; nrun = 1, deltas = [0.0])
+    provenance = AAS2025PDFreeMO.collect_provenance(configs; seed = SEED)
+    mktempdir() do dir
+        rng = copy(Random.default_rng())
+        @test isnothing(AAS2025PDFreeMO.rehearse_result_io(configs, provenance, dir))
+        @test rng == Random.default_rng()
+        @test isempty(readdir(dir))  # nothing is left behind
+    end
+end
+
 @testset "time profile excludes compiled instances" begin
     mktempdir() do dir
         file = joinpath(dir, "results.jld2")

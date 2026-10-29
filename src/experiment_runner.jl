@@ -289,14 +289,55 @@ function warm_up(configs::Vector{<:ExperimentConfig})
     runs = Dict{String, Any}[]
     seconds = @elapsed for config in configs
         config.run_id == 1 || continue
-        result = run_single_experiment(config)
-        push!(runs, Dict{String, Any}("solver" => string(config.solver_name), "delta" => config.delta,
-                                      "status" => string(result.status), "compile_time" => result.compile_time,
-                                      "total_time" => result.total_time))
+        push!(runs, warmup_run_record(config, run_single_experiment(config)))
     end
-    return Dict{String, Any}("policy" => WARMUP_POLICY, "seconds" => seconds,
-                             "compile_seconds" => sum(run["compile_time"] for run in runs; init = 0.0),
-                             "runs" => runs)
+    return warmup_summary(runs, seconds)
+end
+
+"""Record of one warm-up run, as stored under `"runs"` by `warm_up`."""
+warmup_run_record(config::ExperimentConfig, result::ExperimentResult) =
+    Dict{String, Any}("solver" => string(config.solver_name), "delta" => config.delta,
+                      "status" => string(result.status), "compile_time" => result.compile_time,
+                      "total_time" => result.total_time)
+
+"""Summary returned by `warm_up` for the run records `runs` and the wall time `seconds`."""
+warmup_summary(runs::Vector{Dict{String, Any}}, seconds::Float64) =
+    Dict{String, Any}("policy" => WARMUP_POLICY, "seconds" => seconds,
+                      "compile_seconds" => sum(run["compile_time"] for run in runs; init = 0.0),
+                      "runs" => runs)
+
+"""
+    rehearse_result_io(configs, provenance, outdir)
+
+Write a provenance record (`provenance` plus a warm-up summary) and a result of
+the types of a real run to a temporary file in `outdir`, through the functions
+of a real run (`write_provenance`, `_save_results_to_jld2`, `append_from_jld2`),
+then remove the files. No solver is called and the global random stream is untouched.
+
+Call it once per process, before the first `warm_up`. The first JLD2 writes of a
+process compile code that can invalidate code already compiled for the solvers:
+without the rehearsal, the first provenance write after the warm-up made PDFPM
+recompile in the first measured run of JOS4 (0.015 s). Rehearsing the writes
+moves that compilation, and the invalidations, before the warm-up.
+"""
+function rehearse_result_io(configs::Vector{<:ExperimentConfig}, provenance::Dict{String, Any}, outdir::String)
+    config = first(configs)
+    nobj = getfield(MultiObjectiveProblems, config.problem_name)().nobj
+    result = create_failed_result(config, nobj, "I/O rehearsal")
+    record = merge(provenance, Dict{String, Any}("warmup" => warmup_summary([warmup_run_record(config, result)], 0.0)))
+    tag = randstring(RandomDevice(), 8)
+    live_file = joinpath(outdir, "io_rehearsal_$(tag).jld2")
+    batch_file = joinpath(outdir, "io_rehearsal_batch_$(tag).jld2")
+    mkpath(outdir)
+    try
+        write_provenance(live_file, record, [config.problem_name])
+        _save_results_to_jld2(batch_file, [result])
+        append_from_jld2(live_file, batch_file)
+    finally
+        rm(live_file; force = true)
+        rm(batch_file; force = true)
+    end
+    return nothing
 end
 
 """
