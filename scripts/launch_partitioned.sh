@@ -42,7 +42,7 @@ if [[ -e $results ]]; then
     exit 1
 fi
 
-mapfile -t workers < <(grep -v '^[[:space:]]*#' "$assignment" | awk -F'\t' 'NF == 2 {print $1}' | sort -n -u)
+mapfile -t workers < <(grep -v '^[[:space:]]*#' "$assignment" | awk -F'\t' 'NF >= 2 {print $1}' | sort -n -u)
 read -r -a cpus <<< "${CPUS:-$(seq -s ' ' 0 $((${#workers[@]} - 1)))}"
 if [[ ${#cpus[@]} -lt ${#workers[@]} ]]; then
     echo "${#workers[@]} workers but only ${#cpus[@]} CPUs in CPUS" >&2

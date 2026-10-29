@@ -58,7 +58,7 @@ println("Selected problems: $PROBLEMS")
 
 """
     main(; problems=PROBLEMS, solvers=SOLVERS, nrun=NRUN, deltas=DELTAS, outdir=datadir("sims"),
-         run_problems=problems, worker=1, nworkers=1, on_problem_start=nothing)
+         run_problems=problems, run_deltas=Dict(), worker=1, nworkers=1, on_problem_start=nothing)
 
 Run the full benchmark suite across all configured problems, solvers, and
 perturbation levels. Results are saved under `outdir` with a timestamped
@@ -69,24 +69,38 @@ for smoke runs and for partitioned runs; the defaults are the experimental proto
 # Partitioned runs
 The configurations of every problem in `problems` are generated in order, so the
 random stream (initial points and `A` matrices) is the one of the sequential run,
-but only the problems in `run_problems` are solved. Each of `nworkers` processes
-passes its own `run_problems`, `worker` and `outdir`; no file is shared. The
-partition (`worker`, `nworkers`, `run_problems`, `problems`) is stored in the
-provenance record under `"partition"`. `on_problem_start(problem)`, if given, is
-called before a problem is solved (e.g. to log the machine load).
+but only the problems in `run_problems` are solved. `run_deltas[problem]`, when
+present, restricts the solved deltas of that problem (the others are generated
+and skipped, so the draws do not change); such a part is saved as
+`<problem>_delta_<δ>…` (see `part_name`) and its provenance record lists the
+solved `deltas` next to the `protocol_deltas`. Each of `nworkers` processes
+passes its own `run_problems`, `run_deltas`, `worker` and `outdir`; no file is
+shared. The partition (`worker`, `nworkers`, `run_problems`, `run_deltas`,
+`problems`) is stored in the provenance record under `"partition"`.
+`on_problem_start(problem, deltas)`, if given, is called before a problem is
+solved with the deltas to solve (e.g. to log the machine load).
 
 # Throws
-- `ArgumentError`: If `run_problems` holds a problem that is not in `problems`.
+- `ArgumentError`: If `run_problems` holds a problem that is not in `problems`,
+  or `run_deltas` a problem not in `run_problems` or a delta not in `deltas`.
 """
 function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DELTAS,
-              outdir = datadir("sims"), run_problems = problems, worker = 1, nworkers = 1,
-              on_problem_start = nothing)
+              outdir = datadir("sims"), run_problems = problems, run_deltas = Dict(),
+              worker = 1, nworkers = 1, on_problem_start = nothing)
     problems = Symbol.(problems)
     run_problems = Symbol.(run_problems)
     unknown = setdiff(run_problems, problems)
     isempty(unknown) || throw(ArgumentError("run_problems not in problems: $unknown"))
+    run_deltas = Dict(Symbol(problem) => collect(ds) for (problem, ds) in run_deltas)
+    for (problem, ds) in run_deltas
+        problem in run_problems || throw(ArgumentError("run_deltas has $problem, which is not in run_problems"))
+        # Exact match: a delta is a protocol value, never a measured one.
+        bad = filter(d -> !any(isequal(d), deltas), ds)
+        (isempty(ds) || !isempty(bad)) && throw(ArgumentError("run_deltas[$problem] = $ds must be a nonempty subset of $deltas"))
+    end
     partition = Dict{String, Any}("worker" => worker, "nworkers" => nworkers,
                                   "run_problems" => string.(run_problems),
+                                  "run_deltas" => Dict{String, Any}(string(p) => ds for (p, ds) in run_deltas),
                                   "problems" => string.(problems))
 
     Random.seed!(SEED)
@@ -111,29 +125,33 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
             COMMON_SOLVER_OPTIONS;
             solver_specific_options = SOLVER_SPECIFIC_OPTIONS
         )
-        # The draws above are made for every problem; solving and saving do not
-        # touch the global stream, so skipping a problem keeps the next draws.
+        # The draws above are made for every problem and delta; solving and saving
+        # do not touch the global stream, so skipping a problem or a delta keeps
+        # the next draws.
         problem in run_problems || continue
-        println("Total instances for problem $problem: $(length(configs))")
-        isnothing(on_problem_start) || on_problem_start(problem)
+        solve_deltas = [d for d in deltas if any(isequal(d), get(run_deltas, problem, deltas))]
+        configs = filter(config -> any(isequal(config.delta), solve_deltas), configs)
+        part = AAS2025PDFreeMO.part_name(problem, solve_deltas, deltas)
+        println("Total instances for $part: $(length(configs))")
+        isnothing(on_problem_start) || on_problem_start(problem, solve_deltas)
         start_time = time()
 
         # Execute with batch saving to reduce data loss risk
         results = AAS2025PDFreeMO.run_experiment_with_batch_saving(
             configs,
             batch_size=50,
-            filename_base="$problem",
+            filename_base=part,
             outdir=outdir,
-            provenance=merge(AAS2025PDFreeMO.collect_provenance(configs; seed=SEED),
+            provenance=merge(AAS2025PDFreeMO.collect_provenance(configs; seed=SEED, protocol_deltas=deltas),
                              Dict{String, Any}("partition" => partition)),
         )
 
-        AAS2025PDFreeMO.append_from_jld2(filepath, joinpath(outdir, "$problem.jld2"))
+        AAS2025PDFreeMO.append_from_jld2(filepath, joinpath(outdir, "$part.jld2"))
 
         mkpath(joinpath(outdir, "problems"))
-        mv(joinpath(outdir, "$problem.jld2"),
-        joinpath(outdir, "problems", "$problem.jld2"); force=true)
-        println("[problem-time] worker=$worker problem=$problem seconds=$(round(time() - start_time; digits=3))")
+        mv(joinpath(outdir, "$part.jld2"),
+        joinpath(outdir, "problems", "$part.jld2"); force=true)
+        println("[problem-time] worker=$worker problem=$problem deltas=$(join(solve_deltas, ",")) seconds=$(round(time() - start_time; digits=3))")
 
         # --- manual memory cleanup ---
         configs = nothing
