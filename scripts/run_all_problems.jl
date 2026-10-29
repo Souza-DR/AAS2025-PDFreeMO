@@ -80,6 +80,12 @@ shared. The partition (`worker`, `nworkers`, `run_problems`, `run_deltas`,
 `on_problem_start(problem, deltas)`, if given, is called before a problem is
 solved with the deltas to solve (e.g. to log the machine load).
 
+# Compilation
+Before the measured runs of each problem, run 1 of each (solver, solved delta)
+is run and discarded (see `warm_up`), so that no `total_time` includes
+compilation; each result records its own `compile_time` as proof. The warm-up
+is logged as `[warmup]` and stored in the provenance record under `"warmup"`.
+
 # Throws
 - `ArgumentError`: If `run_problems` holds a problem that is not in `problems`,
   or `run_deltas` a problem not in `run_problems` or a delta not in `deltas`.
@@ -136,6 +142,9 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
         isnothing(on_problem_start) || on_problem_start(problem, solve_deltas)
         start_time = time()
 
+        warmup = AAS2025PDFreeMO.warm_up(configs)
+        println("[warmup] worker=$worker problem=$problem deltas=$(join(solve_deltas, ",")) runs=$(length(warmup["runs"])) seconds=$(round(warmup["seconds"]; digits=3)) compile_seconds=$(round(warmup["compile_seconds"]; digits=3))")
+
         # Execute with batch saving to reduce data loss risk
         results = AAS2025PDFreeMO.run_experiment_with_batch_saving(
             configs,
@@ -143,7 +152,7 @@ function main(; problems = PROBLEMS, solvers = SOLVERS, nrun = NRUN, deltas = DE
             filename_base=part,
             outdir=outdir,
             provenance=merge(AAS2025PDFreeMO.collect_provenance(configs; seed=SEED, protocol_deltas=deltas),
-                             Dict{String, Any}("partition" => partition)),
+                             Dict{String, Any}("partition" => partition, "warmup" => warmup)),
         )
 
         AAS2025PDFreeMO.append_from_jld2(filepath, joinpath(outdir, "$part.jld2"))

@@ -20,7 +20,7 @@ include("data_analysis.jl")
 export ExperimentResult, ExperimentConfig
 export datas
 export CommonSolverOptions, SolverSpecificOptions, SolverConfiguration, get_solver_options
-export generate_experiment_configs, run_experiment, run_experiment_with_batch_saving
+export generate_experiment_configs, run_experiment, run_experiment_with_batch_saving, warm_up
 export collect_provenance, write_provenance, load_provenance, machine_record, part_name
 
 # Data analysis helpers

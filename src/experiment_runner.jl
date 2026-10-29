@@ -264,6 +264,41 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
     end
 end
 
+"""Warm-up policy of `warm_up`, stored in the provenance record of each problem."""
+const WARMUP_POLICY = "run 1 of each (solver, delta), discarded"
+
+"""
+    warm_up(configs)
+
+Run, and discard, run 1 of each (solver, delta) in `configs`, so that the
+measured runs of these configurations do not include compilation.
+
+The solvers are called with closures over the problem, so they are compiled
+for each problem; the path for `delta > 0` is compiled once per process, at the
+first such delta. Warming up a single delta therefore leaves compilation in
+some measured runs. Only configurations already generated are used, so the
+global random stream is untouched (`run_single_experiment` draws nothing) and
+the configurations are not modified (the solvers copy `x0`).
+
+# Returns
+- `Dict{String, Any}` with `policy` (`WARMUP_POLICY`), `seconds` (wall time),
+  `compile_seconds` (sum of the `compile_time` of the warm-up runs) and `runs`
+  (`solver`, `delta`, `status`, `compile_time` and `total_time` of each run).
+"""
+function warm_up(configs::Vector{<:ExperimentConfig})
+    runs = Dict{String, Any}[]
+    seconds = @elapsed for config in configs
+        config.run_id == 1 || continue
+        result = run_single_experiment(config)
+        push!(runs, Dict{String, Any}("solver" => string(config.solver_name), "delta" => config.delta,
+                                      "status" => string(result.status), "compile_time" => result.compile_time,
+                                      "total_time" => result.total_time))
+    end
+    return Dict{String, Any}("policy" => WARMUP_POLICY, "seconds" => seconds,
+                             "compile_seconds" => sum(run["compile_time"] for run in runs; init = 0.0),
+                             "runs" => runs)
+end
+
 """
     run_experiment_with_batch_saving(configs; batch_size=50, filename_base="benchmark_live",
                                      outdir=datadir("sims"), provenance=collect_provenance(configs))
