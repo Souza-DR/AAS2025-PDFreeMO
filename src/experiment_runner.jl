@@ -137,9 +137,44 @@ function append_from_jld2(final_filepath::String, temp_filepath::String)
 end
 
 """
+    with_compile_time(f, compile_time::Ref{Float64})
+
+Call `f()` and store in `compile_time[]` the seconds Julia spent compiling
+during the call, also when `f` throws.
+
+Compile timing is switched on around the call itself, so the value is never
+`0.0` merely because timing was off. `Base.cumulative_compile_timing` keeps a
+counter that callers such as `@time` raise and lower in pairs; timing is on
+while it is nonzero. The counter is a `UInt8` that wraps, so after an unpaired
+switch-off (0 → 255) a single switch-on would leave timing off: the counter is
+therefore read back (`jl_measure_compile_time_enabled`, a Julia internal, checked
+on Julia 1.12.1) and raised until it is nonzero, then lowered by as much at the
+end, which restores the state found and never switches off a measurement made
+elsewhere.
+"""
+function with_compile_time(f, compile_time::Ref{Float64})
+    timing_counter = cglobal(:jl_measure_compile_time_enabled, UInt8)
+    raised = 0
+    while raised == 0 || unsafe_load(timing_counter) == 0
+        Base.cumulative_compile_timing(true)
+        raised += 1
+    end
+    start = Base.cumulative_compile_time_ns()[1]
+    try
+        return f()
+    finally
+        compile_time[] = (Base.cumulative_compile_time_ns()[1] - start) / 1e9
+        for _ in 1:raised
+            Base.cumulative_compile_timing(false)
+        end
+    end
+end
+
+"""
     run_single_experiment(config::ExperimentConfig{T}) where T
 
-Run a single experiment and return the corresponding `ExperimentResult`.
+Run a single experiment and return the corresponding `ExperimentResult`, with
+the compile time of the solver call (see `with_compile_time`).
 """
 function run_single_experiment(config::ExperimentConfig{T}) where T
     problem_constructor = getfield(MultiObjectiveProblems, config.problem_name)
@@ -147,45 +182,51 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
 
     # Resolve solver options for the requested solver.
     options = get_solver_options(config.solver_name, config.solver_config)
-       
+
     l, u = MultiObjectiveProblems.recommended_bounds(problem_instance)
-        
-    try        
-        if config.solver_name == :PDFPM || config.solver_name == :PDFPM_trace_scaled
-            # Resolve the solver function and its options.
-            solver_function = getfield(MOSolvers, :PDFPM)
-            # Execute with precomputed matrices.
-            result = solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
-                                    config.data_matrices,
-                                    config.delta,
-                                    config.initial_point,
-                                    options; evalJf = x -> MultiObjectiveProblems.eval_jacobian(problem_instance, x),
-                                    lb = l, ub = u)
-        elseif config.solver_name == :Dfree
-            # Resolve the solver function and its options.
-            solver_function = getfield(MOSolvers, :PDFPM)
-            # Execute with precomputed matrices.
-            result = solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
-                                     config.data_matrices,
-                                     config.delta,
-                                     config.initial_point,
-                                     options;
-                                     lb = l, ub = u)    
-        
-        elseif config.solver_name == :ProxGrad || config.solver_name == :CondG
-            # Resolve the solver function and its options.
-            solver_function = getfield(MOSolvers, config.solver_name)
-            # Execute with precomputed matrices.
-            result = solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
-                                     x -> MultiObjectiveProblems.eval_jacobian(problem_instance, x),
-                                     config.data_matrices,
-                                     config.delta,
-                                     config.initial_point,
-                                     options;
-                                     lb = l, ub = u)
+    compile_time = Ref(0.0)
+
+    try
+        # Only the solver call is timed, the stretch whose time the solver reports.
+        result = with_compile_time(compile_time) do
+            if config.solver_name == :PDFPM || config.solver_name == :PDFPM_trace_scaled
+                # Resolve the solver function and its options.
+                solver_function = getfield(MOSolvers, :PDFPM)
+                # Execute with precomputed matrices.
+                solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
+                                config.data_matrices,
+                                config.delta,
+                                config.initial_point,
+                                options; evalJf = x -> MultiObjectiveProblems.eval_jacobian(problem_instance, x),
+                                lb = l, ub = u)
+            elseif config.solver_name == :Dfree
+                # Resolve the solver function and its options.
+                solver_function = getfield(MOSolvers, :PDFPM)
+                # Execute with precomputed matrices.
+                solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
+                                config.data_matrices,
+                                config.delta,
+                                config.initial_point,
+                                options;
+                                lb = l, ub = u)    
+
+            elseif config.solver_name == :ProxGrad || config.solver_name == :CondG
+                # Resolve the solver function and its options.
+                solver_function = getfield(MOSolvers, config.solver_name)
+                # Execute with precomputed matrices.
+                solver_function(x -> MultiObjectiveProblems.eval_f(problem_instance, x),
+                                x -> MultiObjectiveProblems.eval_jacobian(problem_instance, x),
+                                config.data_matrices,
+                                config.delta,
+                                config.initial_point,
+                                options;
+                                lb = l, ub = u)
+            else
+                error("Solver $(config.solver_name) not supported")
+            end
+        end
+        if config.solver_name == :ProxGrad || config.solver_name == :CondG
             println("Solver message: ", result.message)
-        else
-            error("Solver $(config.solver_name) not supported")
         end
 
         # Keep the metrics of nonconverged runs too: the analysis filters on
@@ -204,6 +245,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
             result.n_f_evals,
             result.n_Jf_evals,
             result.total_time,
+            compile_time[],
             copy(result.F_init),
             copy(result.Fval),
             deepcopy(result.x_trace),
@@ -218,7 +260,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
         # Log the failure to aid debugging, then return a failed result.
         println("Error while running $(config.solver_name) on $(config.problem_name):")
         println(sprint(showerror, e, catch_backtrace()))
-        return create_failed_result(config, problem_instance.nobj, sprint(showerror, e))
+        return create_failed_result(config, problem_instance.nobj, sprint(showerror, e), compile_time[])
     end
 end
 
@@ -307,12 +349,14 @@ function run_experiment_with_batch_saving(
 end
 
 """
-    create_failed_result(config, nobj, message)
+    create_failed_result(config, nobj, message, compile_time=0.0)
 
 Build an `ExperimentResult` for a run that raised an exception, with status
-`:runner_error` and the exception text as `message`.
+`:runner_error`, the exception text as `message` and the compile time measured
+until the exception.
 """
-function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::AbstractString) where T
+function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::AbstractString,
+                              compile_time::Float64 = 0.0) where T
     return ExperimentResult{T}(
         config.solver_name,
         solver_step_tolerance_rule(config.solver_name),
@@ -327,6 +371,7 @@ function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::A
         0,
         0,
         0.0,
+        compile_time,
         fill(T(NaN), nobj),
         fill(T(NaN), nobj),
         Vector{T}[],

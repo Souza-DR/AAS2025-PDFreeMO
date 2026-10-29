@@ -21,7 +21,11 @@ problem.
 - `iter::Int`: Total number of solver iterations.
 - `n_f_evals::Int`: Total number of objective function evaluations.
 - `n_Jf_evals::Int`: Total number of Jacobian evaluations.
-- `total_time::Float64`: Elapsed runtime in seconds.
+- `total_time::Float64`: Elapsed runtime in seconds, measured by the solver.
+- `compile_time::Float64`: Seconds Julia spent compiling during the solver call
+  (see `with_compile_time`); `0.0` proves that `total_time` holds no
+  compilation. For `:runner_error`, the compilation until the exception. Files
+  written before this field existed lack it.
 - `F_init::Vector{T}`: Initial objective vector value.
 - `final_objective_value::Vector{T}`: Final objective vector value.
 - `x_trace`, `Fval_trace`, `abs_theta_trace`, `norm_progress_trace`,
@@ -48,6 +52,7 @@ struct ExperimentResult{T<:Real}
     n_f_evals::Int
     n_Jf_evals::Int
     total_time::Float64
+    compile_time::Float64
     F_init::Vector{T}
     final_objective_value::Vector{T}
 
