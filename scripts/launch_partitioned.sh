@@ -13,8 +13,9 @@
 #
 # Worker k runs on CPU k-1 (CPUS overrides the list, one CPU per worker in order).
 # Environment overrides: JULIA, JULIA_DEPOT_PATH, CPUS, SNAPSHOT_DIR,
-# SNAPSHOT_SECONDS (copy of results/<label> to SNAPSHOT_DIR every SNAPSHOT_SECONDS;
-# 0 disables it; meant for a slow NFS home, so keep it infrequent).
+# SNAPSHOT_SECONDS (copy of results/<label> to SNAPSHOT_DIR/<label> every
+# SNAPSHOT_SECONDS and once after the last worker ends, by scripts/snapshot_results.sh;
+# 0 disables it; SNAPSHOT_DIR is meant to be a persistent home, e.g. NFS).
 set -euo pipefail
 
 if [[ $# -lt 2 || $# -gt 3 ]]; then
@@ -34,7 +35,7 @@ export JULIA_DEPOT_PATH=${JULIA_DEPOT_PATH:-$run_root/depot:$(dirname "$(dirname
 export JULIA_NUM_THREADS=1 OPENBLAS_NUM_THREADS=1 OMP_NUM_THREADS=1
 export JULIA_PKG_OFFLINE=true  # the depot is already instantiated; never resolve during a run
 snapshot_dir=${SNAPSHOT_DIR:-$HOME/f5-snapshots}
-snapshot_seconds=${SNAPSHOT_SECONDS:-21600}
+snapshot_seconds=${SNAPSHOT_SECONDS:-1800}
 
 results=$run_root/results/$label
 if [[ -e $results ]]; then
@@ -81,16 +82,9 @@ for i in "${!workers[@]}"; do
 done
 
 if [[ $snapshot_seconds -gt 0 ]]; then
-    # Low-priority periodic copy out of RAM; stops when no worker is left.
-    pids=$(awk '{sub("pid=", "", $3); print $3}' "$results/pids.txt" | tr '\n' ' ')
-    setsid nohup bash -c "
-        while true; do
-            sleep $snapshot_seconds
-            mkdir -p '$snapshot_dir/$label'
-            nice -n 19 ionice -c3 rsync -a '$results/' '$snapshot_dir/$label/' \
-                && echo \"\$(date --iso-8601=seconds) snapshot ok\" >> '$results/logs/snapshot.log'
-            alive=0; for p in $pids; do kill -0 \$p 2>/dev/null && alive=1; done
-            [[ \$alive == 1 ]] || break
-        done" > /dev/null 2>&1 < /dev/null &
+    # Low-priority periodic copy out of RAM, plus a final one after the last worker ends.
+    mapfile -t pids < <(awk '{sub("pid=", "", $3); print $3}' "$results/pids.txt")
+    setsid nohup "$repo/scripts/snapshot_results.sh" "$results" "$snapshot_dir/$label" \
+        "$snapshot_seconds" "${pids[@]}" > /dev/null 2>&1 < /dev/null &
     echo "snapshot pid=$! every ${snapshot_seconds}s to $snapshot_dir/$label" | tee -a "$results/pids.txt"
 fi
