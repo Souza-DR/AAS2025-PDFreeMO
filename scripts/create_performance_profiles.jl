@@ -34,8 +34,12 @@ const METRICS = Dict(
 Create and save the performance profile.
 """
 function create_performance_profile(filepath::String, metric::String)
-    perf_matrix, instance_info = AAS2025PDFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES)
-    
+    # A time that includes compilation measures Julia, not the solver: instances in
+    # which some solver compiled leave the time profile for every solver (listed
+    # in the output). The counts (iterations, evaluations) keep every instance.
+    perf_matrix, instance_info = AAS2025PDFreeMO.extract_performance_data(filepath, metric, SOLVER_NAMES;
+                                                                          exclude_compiled = metric == "total_time")
+
     if perf_matrix === nothing || isempty(perf_matrix)
         println("Could not extract performance data.")
         return Dict{Float64, Dict{Symbol, String}}()

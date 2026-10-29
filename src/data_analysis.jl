@@ -206,7 +206,8 @@ equivalent: `success` came from the removed `OptimResult.success`, which
 run_converged(result) = hasproperty(result, :converged) ? result.converged : result.success
 
 """
-    extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
+    extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String};
+                             exclude_compiled = metric == "total_time")
 
 Build a performance matrix from a JLD2 file for the requested metric and solvers.
 
@@ -214,6 +215,11 @@ Build a performance matrix from a JLD2 file for the requested metric and solvers
 - `filepath::String`: Absolute path to the JLD2 file.
 - `metric::String`: Metric name to extract (e.g. `"iter"`, `"total_time"`).
 - `target_solvers::Vector{String}`: Solvers to include as columns in the matrix.
+- `exclude_compiled`: Drop every instance in which at least one of the analyzed
+  solvers has `compile_time > 0`, whether or not it converged. The whole row
+  goes, for all solvers: a profile compares solvers on the same instances.
+  The excluded instances are printed. Results without `compile_time` (files
+  written before it existed) are never excluded; a warning says how many there are.
 
 # Returns
 - `Matrix{Float64}`: Performance matrix (instances × solvers) with `NaN`
@@ -224,7 +230,8 @@ Build a performance matrix from a JLD2 file for the requested metric and solvers
 - The expected hierarchy is `solver/problem/delta/run_id`.
 - Only converged runs (`run_converged`) containing the requested metric are recorded.
 """
-function extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String})
+function extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String};
+                                  exclude_compiled::Bool = metric == "total_time")
     println("\nExtracting performance data from: $(basename(filepath))")
     println("Metric: $metric")
 
@@ -270,6 +277,8 @@ function extract_performance_data(filepath::String, metric::String, target_solve
 
         # Build performance matrix (instances × solvers)
         perf_matrix = fill(NaN, length(sorted_instance_info), length(solvers_to_analyze))
+        compiled_rows = Set{Int}()
+        without_compile_time = 0
         
         # Populate the matrix
         for (instance_idx, (problem, delta, run_id)) in enumerate(sorted_instance_info)
@@ -285,12 +294,31 @@ function extract_performance_data(filepath::String, metric::String, target_solve
 
                 if path_exists
                     result = file[solver][problem][delta_key][run_key]
+
+                    if !hasproperty(result, :compile_time)
+                        without_compile_time += 1
+                    elseif result.compile_time > 0
+                        push!(compiled_rows, instance_idx)
+                    end
                     
                     if run_converged(result) && hasproperty(result, Symbol(metric))
                         perf_matrix[instance_idx, solver_idx] = getproperty(result, Symbol(metric))
                     end
                 end
             end
+        end
+
+        if exclude_compiled
+            without_compile_time > 0 &&
+                @warn "$without_compile_time results have no compile_time (file written before it was recorded); they are not excluded."
+            excluded = sorted_instance_info[sort(collect(compiled_rows))]
+            println("Instances excluded for compilation (compile_time > 0 in some solver): $(length(excluded))")
+            for (problem, delta, run_id) in excluded
+                println("  $problem delta=$delta run=$run_id")
+            end
+            kept = setdiff(eachindex(sorted_instance_info), compiled_rows)
+            perf_matrix = perf_matrix[kept, :]
+            sorted_instance_info = sorted_instance_info[kept]
         end
         
         return perf_matrix, sorted_instance_info
