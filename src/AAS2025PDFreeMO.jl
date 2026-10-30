@@ -16,6 +16,7 @@ include("utils.jl")
 include("provenance.jl")
 include("experiment_runner.jl")
 include("data_analysis.jl")
+include("merit.jl")
 
 export ExperimentResult, ExperimentConfig
 export datas
@@ -28,6 +29,9 @@ export list_jld2_files
 export is_biobjective_problem, list_biobjective_problems, filter_solvers
 export extract_performance_data, extract_problem_data
 export list_solvers_for_problem, run_converged
+
+# Stationarity merit of returned points
+export MERIT_TOLS, merit_params, merit_objective, merit_w1, merit_w1_dual
 export _ensure_cairomakie_available
 
 # Plotting helpers
