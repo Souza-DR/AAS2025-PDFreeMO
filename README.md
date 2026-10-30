@@ -110,11 +110,11 @@ There are other utility scripts available in `scripts/` for specific analyses:
 Each solver stops by its own criterion; the merit w₁ of Tanabe et al. (Optim. Lett. 2023, eq. (5), ℓ = 1), zero exactly at Pareto critical points, judges the returned points with one measure (`src/merit.jl`). `merit_w1` computes it as -θ of ProxGrad's subproblem with σ = 1 (`MOSolvers.subproblem_proxgrad`, Ipopt tolerance 1e-12, then 1e-10 if Ipopt fails, never 0 on failure), with the box of the runs and h built as in ProxGrad (`merit_params`), and also returns a lower bound evaluated at the subproblem's solution. For δ = 0 and up to three objectives, `merit_w1_dual` computes it exactly through its dual over the simplex, which validates the Ipopt value.
 
 ```bash
-julia --project=. scripts/compute_merit.jl data/sims/<results>.jld2 data/sims/merit_<label>.jld2 [problem ...]
+julia --project=. scripts/compute_merit.jl data/sims/<results>.jld2 data/sims/merit_<label>.jld2 [problem[/delta] ...]
 julia --project=. scripts/compute_merit.jl --join data/sims/merit_<label>.jld2 <part.jld2> ...
 ```
 
-The script regenerates the `A` matrices and the initial points of the run from its provenance records (and checks the stored initial points), and writes one row per returned point and per initial point (see the script's docstring for the columns). Listing problems makes one process per problem possible; `--join` merges the parts. `extract_performance_data(...; success)` takes the success criterion of a profile as a function of the stored result (default `run_converged`, the solver's own criterion), so that a profile can count as solved the runs whose returned point has a small merit.
+The script regenerates the `A` matrices and the initial points of the run from its provenance records (and checks the stored initial points), and writes one row per returned point and per initial point (see the script's docstring for the columns). Listing problems, or `problem/delta` parts (e.g. `ZLT1/0.05`), makes one process per part possible; `--join` merges the parts. `extract_performance_data(...; success)` takes the success criterion of a profile as a function of the stored result (default `run_converged`, the solver's own criterion), so that a profile can count as solved the runs whose returned point has a small merit.
 
 ---
 
