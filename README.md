@@ -27,7 +27,7 @@ A Julia package for solving multi-objective optimization problems with composite
 
 - **/src** – Source code of the module `AAS2025PDFreeMO.jl` that orchestrates experiments (configuration types, runners, and I/O helpers).
 - **/scripts** – Executable scripts that launch benchmarks and generate plots.
-- **/test** – Tests of the compile-time record, the warm-up and the time-profile exclusion; run in a new process with `julia --project=. test/runtests.jl`.
+- **/test** – Tests of the compile-time record, the warm-up, the time-profile exclusion, the final point and the stationarity merit; run in a new process with `julia --project=. test/runtests.jl`.
 
 ---
 
@@ -77,6 +77,8 @@ Runs are stored under `solver/problem/delta_<δ>/run_<id>` as `ExperimentResult`
 
 Each result also holds the per-iteration traces of the solver (`x_trace`, `Fval_trace`, `abs_theta_trace`, `norm_progress_trace` and, for PDFPM, `sigma_trace` and `max_tr_B_trace`), filled according to `store_level` in `CommonSolverOptions`. The benchmark uses `:low`, which keeps every trace except `x_trace`. Results written before these fields existed can still be read by the analysis functions.
 
+`final_point` holds the point returned by the solver, at which `final_objective_value` was evaluated (empty for `:runner_error`), so that the returned points can be judged by a measure common to all solvers (below). Files written before it existed lack it and are read with a JLD2 warning (the type is reconstructed).
+
 `total_time` is measured by the solver and must not include Julia's compilation: the solvers are compiled for each problem, and the code for `delta > 0` once per process. Before the measured runs of each problem, `main()` therefore runs and discards run 1 of each (solver, solved delta) (`warm_up`; logged as `[warmup]` lines and stored in the provenance record under `"warmup"`, with the policy, wall time, compile time and status of each warm-up run). Nothing new is compiled between the warm-up and the measured runs: the provenance is collected before the warm-up, and the JLD2 writes of a run are rehearsed once per process, on a temporary file, before the first warm-up (`rehearse_result_io`), because the first JLD2 write of a process can invalidate code already compiled for the solvers. Each result records `compile_time`, the seconds spent compiling during its solver call (also until the exception for `:runner_error`), so every measured run shows whether its time is clean; `0.0` is expected for all of them. The time performance profile excludes, and lists, every instance (problem, delta, run) in which one of the compared solvers has `compile_time > 0`, for all solvers (`extract_performance_data(...; exclude_compiled)`); the profiles of iterations and evaluations keep every instance. Files written before `compile_time` existed are read with a warning and nothing excluded.
 
 Each file also holds `_provenance/<problem>`: the commit and dirty state of `MOSolvers.jl`, `MultiObjectiveProblems.jl` and this repository, the Julia version, the full `Project.toml` and `Manifest.toml`, the machine (`"machine"`: host name, CPU model and target, logical CPUs, memory, BLAS configuration and threads, Julia threads, the `JULIA_NUM_THREADS`/`OPENBLAS_NUM_THREADS`/`OMP_NUM_THREADS` variables and the CPU affinity; results are not bit-for-bit reproducible across CPUs), the effective solver options, the solved `deltas` and the `protocol_deltas`, the seed and the box. Read it with `AAS2025PDFreeMO.load_provenance(filepath, problem)`. A problem solved in parts by delta (below) has one record per part, `_provenance/<problem>_delta_<δ>…`; `load_provenance(filepath, problem)` then throws, and `load_provenance(filepath, problem, delta)` returns the record of the part that solved `delta` (it also works for whole problems).
@@ -103,6 +105,16 @@ There are other utility scripts available in `scripts/` for specific analyses:
 - `create_delta_comparison_plots.jl`: Compare performance across different $\delta$ values.
 - `generate_objective_space_plots.jl`: Visualize the objective space for bi-objective problems.
 - `generate_trajectories.jl`: Plot the optimization trajectories of the solvers under analysis for bi-objective problems.
+
+### 4. Stationarity Merit of the Returned Points
+Each solver stops by its own criterion; the merit w₁ of Tanabe et al. (Optim. Lett. 2023, eq. (5), ℓ = 1), zero exactly at Pareto critical points, judges the returned points with one measure (`src/merit.jl`). `merit_w1` computes it as -θ of ProxGrad's subproblem with σ = 1 (`MOSolvers.subproblem_proxgrad`, Ipopt tolerance 1e-12, then 1e-10 if Ipopt fails, never 0 on failure), with the box of the runs and h built as in ProxGrad (`merit_params`), and also returns a lower bound evaluated at the subproblem's solution. For δ = 0 and up to three objectives, `merit_w1_dual` computes it exactly through its dual over the simplex, which validates the Ipopt value.
+
+```bash
+julia --project=. scripts/compute_merit.jl data/sims/<results>.jld2 data/sims/merit_<label>.jld2 [problem ...]
+julia --project=. scripts/compute_merit.jl --join data/sims/merit_<label>.jld2 <part.jld2> ...
+```
+
+The script regenerates the `A` matrices and the initial points of the run from its provenance records (and checks the stored initial points), and writes one row per returned point and per initial point (see the script's docstring for the columns). Listing problems makes one process per problem possible; `--join` merges the parts. `extract_performance_data(...; success)` takes the success criterion of a profile as a function of the stored result (default `run_converged`, the solver's own criterion), so that a profile can count as solved the runs whose returned point has a small merit.
 
 ---
 
