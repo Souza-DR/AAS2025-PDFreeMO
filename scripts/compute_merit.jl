@@ -2,14 +2,15 @@
 Compute the stationarity merit w₁ (see `src/merit.jl`) at the returned point of
 every run of a results file, and at every initial point.
 
-    julia --project=. scripts/compute_merit.jl <results.jld2> <output.jld2> [problem ...]
+    julia --project=. scripts/compute_merit.jl <results.jld2> <output.jld2> [problem[/delta] ...]
     julia --project=. scripts/compute_merit.jl --join <output.jld2> <part.jld2> ...
 
 The first form reads `results.jld2` (a merged file of `merge_partitioned.jl`,
 whose results have `final_point`) and writes the table to `output.jld2`, which
-must not exist; listing problems restricts the table to them, so that one
-process per problem (or group of problems) can run in parallel. The second form
-joins such parts into one table.
+must not exist; listing problems restricts the table to them, and
+`problem/delta` (e.g. `ZLT1/0.05`, a protocol delta) to that delta of the
+problem, so that one process per problem, group of problems or part can run in
+parallel. The second form joins such parts into one table.
 
 The `A` matrices and the initial points are not stored with the results: they
 are regenerated as in the run (seed, problem order, `nrun` and protocol deltas
@@ -30,14 +31,15 @@ Each row is a named tuple with `solver` (`:x0` for an initial point), `problem`,
   `evalh!` sets h = 0). HiGHS's default tolerances give errors up to ~5e-9,
   the size of w₁ at the smallest threshold, √(2w₁) = 1e-4;
 - `w1_hexact`: `merit_w1` with that closed form as h(x) (`NaN` for δ = 0, where
-  it equals `w1`, and when Ipopt fails).
-The file also holds `metadata` (source file, problems, `MERIT_TOLS`, Julia
+  it equals `w1`, and when Ipopt fails), at the tolerance that gave `w1`.
+The file also holds `metadata` (source file, parts, `MERIT_TOLS`, Julia
 version, date, git state of this repository and of `MOSolvers.jl`).
 """
 
 using DrWatson
 @quickactivate "AAS2025-PDFreeMO"
-include(srcdir("AAS2025PDFreeMO.jl"))
+# Loaded once, so that analysis scripts can include this file after run_all_problems.jl.
+isdefined(Main, :AAS2025PDFreeMO) || include(srcdir("AAS2025PDFreeMO.jl"))
 using .AAS2025PDFreeMO
 using JLD2, Random, Dates, LinearAlgebra, MOSolvers, MultiObjectiveProblems
 
@@ -95,7 +97,7 @@ function merit_row(problem_instance, x, params, A, lb, ub, delta; solver, proble
         r = merit_w1(x, Jf, params)
         dual = delta == 0 && size(Jf, 1) <= 3 ? merit_w1_dual(x, Jf, lb, ub).w1 : NaN
         h_exact = [delta * norm(A[j]' \ x, 1) for j in eachindex(A)]
-        w1_hexact = delta == 0 ? NaN : merit_w1(x, Jf, params; hx = h_exact).w1
+        w1_hexact = delta == 0 ? NaN : merit_w1(x, Jf, params; hx = h_exact, tols = r.success ? (r.tol,) : MERIT_TOLS).w1
     end
     h_err = delta == 0 ? NaN : maximum(abs.(r.hx - h_exact))
     r.success || return (; key..., status = :merit_failure, empty..., dual, h_err, w1_hexact, message = r.message, seconds)
@@ -104,22 +106,23 @@ function merit_row(problem_instance, x, params, A, lb, ub, delta; solver, proble
 end
 
 """
-    merit_table(results_file, problems)
+    merit_table(results_file, parts)
 
 Rows of the returned points of `results_file` and of the initial points, for
-`problems`.
+`parts`: `(problem, deltas)` pairs, `deltas === nothing` meaning every protocol delta.
 
 # Throws
 - `ErrorException`: If a stored initial point differs from the regenerated
   one, or a result that is not `:runner_error` lacks `final_point`.
 """
-function merit_table(results_file::AbstractString, problems)
-    protocol_problems, nrun, deltas, seed = protocol(results_file)
-    inputs = regenerate_inputs(protocol_problems, nrun, deltas, seed)
+function merit_table(results_file::AbstractString, parts)
+    protocol_problems, nrun, protocol_deltas, seed = protocol(results_file)
+    inputs = regenerate_inputs(protocol_problems, nrun, protocol_deltas, seed)
     rows = NamedTuple[]
     jldopen(results_file, "r") do file
         solvers = filter(!=(AAS2025PDFreeMO.PROVENANCE_KEY), collect(keys(file)))
-        for problem in problems
+        for (problem, part_deltas) in parts
+            deltas = something(part_deltas, protocol_deltas)
             problem_instance = getfield(MultiObjectiveProblems, problem)()
             lb, ub = MultiObjectiveProblems.recommended_bounds(problem_instance)
             started = time()
@@ -153,19 +156,36 @@ function merit_table(results_file::AbstractString, problems)
                 end
                 MOSolvers.clear_evalh_cache!()  # its LP models are cached per `params`
             end
-            println("[merit] problem=$problem rows=$(count(r -> r.problem == problem, rows)) seconds=$(round(time() - started; digits = 1))")
+            println("[merit] problem=$problem deltas=$(join(deltas, ",")) rows=$(count(r -> r.problem == problem && r.delta in deltas, rows)) seconds=$(round(time() - started; digits = 1))")
             flush(stdout)
         end
     end
     return [r for r in rows]
 end
 
-function metadata(results_file, problems)
+function metadata(results_file, parts)
     git(dir) = AAS2025PDFreeMO.git_state(dir)
-    return Dict{String, Any}("results_file" => abspath(results_file), "problems" => string.(problems),
+    return Dict{String, Any}("results_file" => abspath(results_file), "parts" => isempty(parts) ? "all" : collect(String, parts),
                              "merit_tols" => collect(MERIT_TOLS), "julia_version" => string(VERSION),
                              "date" => string(now()), "git" => git(projectdir()),
                              "git_mosolvers" => git(normpath(projectdir("..", "MOSolvers.jl"))))
+end
+
+"""
+    parse_part(arg, protocol_deltas)
+
+Return `(problem, nothing)` for `"problem"` and `(problem, [delta])` for
+`"problem/delta"`.
+
+# Throws
+- `ArgumentError`: If the delta is not exactly a protocol delta.
+"""
+function parse_part(arg::AbstractString, protocol_deltas)
+    occursin('/', arg) || return (Symbol(arg), nothing)
+    problem, delta = split(arg, '/')
+    d = parse(Float64, delta)
+    any(isequal(d), protocol_deltas) || throw(ArgumentError("$arg: $d is not a protocol delta $protocol_deltas"))
+    return (Symbol(problem), [d])
 end
 
 function merit_main(args)
@@ -181,12 +201,13 @@ function merit_main(args)
         println("[merit] $output: $(length(rows)) rows from $(length(parts)) parts")
         return
     end
-    length(args) >= 2 || error("usage: compute_merit.jl <results.jld2> <output.jld2> [problem ...]")
+    length(args) >= 2 || error("usage: compute_merit.jl <results.jld2> <output.jld2> [problem[/delta] ...]")
     results_file, output = args[1], args[2]
     ispath(output) && error("$output already exists; choose another name")
-    problems = length(args) > 2 ? Symbol.(args[3:end]) : first(protocol(results_file))
-    rows = merit_table(results_file, problems)
-    jldsave(output; merit = rows, metadata = metadata(results_file, problems))
+    protocol_problems, _, protocol_deltas, _ = protocol(results_file)
+    parts = length(args) > 2 ? parse_part.(args[3:end], Ref(protocol_deltas)) : [(p, nothing) for p in protocol_problems]
+    rows = merit_table(results_file, parts)
+    jldsave(output; merit = rows, metadata = metadata(results_file, args[3:end]))
     println("[merit] $output: $(length(rows)) rows")
 end
 
