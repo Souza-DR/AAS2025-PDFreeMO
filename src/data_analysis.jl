@@ -207,7 +207,7 @@ run_converged(result) = hasproperty(result, :converged) ? result.converged : res
 
 """
     extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String};
-                             exclude_compiled = metric == "total_time")
+                             exclude_compiled = metric == "total_time", success = run_converged)
 
 Build a performance matrix from a JLD2 file for the requested metric and solvers.
 
@@ -220,6 +220,11 @@ Build a performance matrix from a JLD2 file for the requested metric and solvers
   goes, for all solvers: a profile compares solvers on the same instances.
   The excluded instances are printed. Results without `compile_time` (files
   written before it existed) are never excluded; a warning says how many there are.
+- `success`: Function of a stored result that decides whether the run counts
+  as a success, i.e. enters the matrix. The default is the solver's own
+  stopping criterion (`run_converged`); another criterion, such as a
+  stationarity merit at the returned point, replaces it without changing the
+  exclusion of compiled instances.
 
 # Returns
 - `Matrix{Float64}`: Performance matrix (instances × solvers) with `NaN`
@@ -228,10 +233,12 @@ Build a performance matrix from a JLD2 file for the requested metric and solvers
 
 # Notes
 - The expected hierarchy is `solver/problem/delta/run_id`.
-- Only converged runs (`run_converged`) containing the requested metric are recorded.
+- Only successful runs (`success`, by default `run_converged`) containing the
+  requested metric are recorded.
 """
 function extract_performance_data(filepath::String, metric::String, target_solvers::Vector{String};
-                                  exclude_compiled::Bool = metric == "total_time")
+                                  exclude_compiled::Bool = metric == "total_time",
+                                  success::Function = run_converged)
     println("\nExtracting performance data from: $(basename(filepath))")
     println("Metric: $metric")
 
@@ -301,7 +308,7 @@ function extract_performance_data(filepath::String, metric::String, target_solve
                         push!(compiled_rows, instance_idx)
                     end
                     
-                    if run_converged(result) && hasproperty(result, Symbol(metric))
+                    if success(result) && hasproperty(result, Symbol(metric))
                         perf_matrix[instance_idx, solver_idx] = getproperty(result, Symbol(metric))
                     end
                 end
