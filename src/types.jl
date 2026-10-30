@@ -28,6 +28,9 @@ problem.
   written before this field existed lack it.
 - `F_init::Vector{T}`: Initial objective vector value.
 - `final_objective_value::Vector{T}`: Final objective vector value.
+- `final_point::Vector{T}`: Point returned by the solver (`OptimResult.x`), at
+  which `final_objective_value` was evaluated; empty for `:runner_error`. Files
+  written before this field existed lack it.
 - `x_trace`, `Fval_trace`, `abs_theta_trace`, `norm_progress_trace`,
   `sigma_trace`, `max_tr_B_trace`: Per-iteration traces copied from the
   solver's `OptimResult`, filled according to the `store_level` of the run
@@ -55,6 +58,7 @@ struct ExperimentResult{T<:Real}
     compile_time::Float64
     F_init::Vector{T}
     final_objective_value::Vector{T}
+    final_point::Vector{T}
 
     # Traces of the chosen store level
     x_trace::Vector{Vector{T}}

@@ -248,6 +248,7 @@ function run_single_experiment(config::ExperimentConfig{T}) where T
             compile_time[],
             copy(result.F_init),
             copy(result.Fval),
+            copy(result.x),
             deepcopy(result.x_trace),
             deepcopy(result.Fval_trace),
             copy(result.abs_theta_trace),
@@ -428,8 +429,8 @@ end
     create_failed_result(config, nobj, message, compile_time=0.0)
 
 Build an `ExperimentResult` for a run that raised an exception, with status
-`:runner_error`, the exception text as `message` and the compile time measured
-until the exception.
+`:runner_error`, the exception text as `message`, an empty `final_point` and the
+compile time measured until the exception.
 """
 function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::AbstractString,
                               compile_time::Float64 = 0.0) where T
@@ -450,6 +451,7 @@ function create_failed_result(config::ExperimentConfig{T}, nobj::Int, message::A
         compile_time,
         fill(T(NaN), nobj),
         fill(T(NaN), nobj),
+        T[],
         Vector{T}[],
         Vector{T}[],
         T[],
